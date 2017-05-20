@@ -1,0 +1,72 @@
+---
+title: "Problema 1 - Checkpoint 1 - Nossa pergunta"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  screenshot.force = FALSE,
+  fig.cap = '',
+  fig.align = 'center',
+  fig.width = 10)
+```
+
+```{r}
+library(tidyverse)
+```
+
+## Descrição dos dados  
+
+Nesta análise serão estudadas as seguintes séries: 
+
+* Black Mirror
+* Mr Robot
+* Orphan Black
+* Sense 8
+* Stranger Things
+* The 100  
+
+```{r}
+series <- read_csv("series_from_imdb.csv") %>% 
+  filter(series_name %in% c("Black Mirror", "Mr Robot", "Orphan Black", "Sense8", "Stranger Things", "The 100"))
+```
+
+## Melhor avaliada  
+Tentaremos analizar o quão bem avaliada é uma série, a príncípio vejamos como é a classificação das séries escolhidas de acordo com os votos dos usuários no IMDB.  
+
+```{r}
+ggplot(data = series, aes(x = series_name, y = UserRating)) + 
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(aes(color = series_name)) 
+```
+  
+De acordo com o gráfico __Sense 8__ é a melhor série se observarmos a mediana dos votos do IMDB. Além disso, esta mesma série apresenta um episódio com a melhor avaliação dentre todos das séries estudadas.  
+
+### Uma nova métrica  
+Tentaremos usar uma métrica diferente para perceber se uma série é boa ou não, faremos a seguinte equação:  
+nº de pessoas que amou o episódio - nº de pessoas que odiou o episódio.
+Segundo esse parâmetro 
+
+## Regularidade dos episódios
+
+```{r}
+ggplot(data = series, aes(x = series_ep, y = UserRating, color = series_name)) +
+  geom_line() + 
+  geom_point(size = 0.8) + 
+  facet_wrap(~series_name, ncol = 1)
+```
+
+
+```{r}
+series$aval_positiva <- series$r10 + series$r9 + series$r8 + series$r7 + series$r6
+series$aval_negativa <- series$r1 + series$r2 + series$r3 + series$r4 + series$r5
+
+ggplot(data = series, aes(y = aval_positiva , x = series_ep, color = series_name)) +
+  geom_smooth() +
+  facet_wrap(~series_name, scales = 'free_x')
+
+ggplot(data = series, aes(x = series_name, y = r10-r1)) +
+  geom_boxplot()
+```
