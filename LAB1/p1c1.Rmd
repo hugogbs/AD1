@@ -14,23 +14,27 @@ knitr::opts_chunk$set(echo = TRUE,
 ```
 
 ```{r}
-library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+theme_set(theme_minimal())
 ```
 
 ## Descrição dos dados  
 
 Nesta análise serão estudadas as seguintes séries: 
 
-* Black Mirror
-* Mr Robot
+* Agents of S.H.I.E.L.D.
+* House of Cards
 * Orphan Black
-* Sense 8
-* Stranger Things
-* The 100  
+* The 100
+* The Blacklist
+* Vikings  
 
 ```{r}
 series <- read_csv("series_from_imdb.csv") %>% 
-  filter(series_name %in% c("Black Mirror", "Mr Robot", "Orphan Black", "Sense8", "Stranger Things", "The 100"))
+  filter(series_name %in% c("Agents of S.H.I.E.L.D.", "House of Cards", "Orphan Black", "The 100", "The Blacklist", "Vikings"))
 ```
 
 ## Melhor avaliada  
@@ -39,34 +43,64 @@ Tentaremos analizar o quão bem avaliada é uma série, a príncípio vejamos co
 ```{r}
 ggplot(data = series, aes(x = series_name, y = UserRating)) + 
   geom_boxplot(outlier.shape = NA) +
-  geom_jitter(aes(color = series_name)) 
+  geom_jitter(aes(color = series_name, alpha = 0.2)) 
 ```
   
-De acordo com o gráfico __Sense 8__ é a melhor série se observarmos a mediana dos votos do IMDB. Além disso, esta mesma série apresenta um episódio com a melhor avaliação dentre todos das séries estudadas.  
+Como podemos observar no boxplot acima as avalições das séries se concentram, em sua maioria, em torno de 7.5 e 9.5, com medianas sempre entre 8 e 9.  
+
+De acordo com o gráfico __Agents of S.H.I.E.L.D., House of Cards e Orphan Black__ então empatadas como as séries de melhor avaliação se observarmos a mediana dos votos. As três com 8.6 de mediana.  
+
+As demais séries estão relativamente próximas das que estão em primeiro, a que mais se distancia é _The Blacklist_ com uma diferença de apenas 0.3, ou seja, uma mediana de 8.3.
+
+Nota-se ainda o quão dispersos estão os dados, com destaque especial para _The 100_ que possui algumas observações bastante dispersas, chegando até a avaliações menores que 6 em alguns episódios.
+
+Vejamos agora uma observação ainda mais sumarizada das variáveis através da média e da mediana dos votos no IMDB.  
+```{r}
+sum_series <- series %>%
+  group_by(series_name) %>%
+  summarise(total_eps = n(),
+            media_UR = mean(UserRating),
+            mediana_UR = median(UserRating)
+            )
+
+ggplot(data = sum_series, aes(x = series_name)) +
+  geom_point(aes(x = series_name, y = media_UR, color = "Média")) +
+  geom_point(aes(x = series_name, y = mediana_UR, color = "Mediana"))
+
+```
+
+Observa-se que os valores de média e mediana são, em geral, próximos, significando que ambos são representativos para os dados.
 
 ### Uma nova métrica  
-Tentaremos usar uma métrica diferente para perceber se uma série é boa ou não, faremos a seguinte equação:  
-nº de pessoas que amou o episódio - nº de pessoas que odiou o episódio.
-Segundo esse parâmetro 
+Tentaremos usar uma métrica diferente para perceber se uma série é boa ou não.  
+Veremos a proporção de pessoas que amou a série, ou seja, que deu 10 na avaliação dos episódios
+
+```{r}
+ggplot(data = series, aes(x = series_name, y = r10)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(aes(color = series_name, alpha = .2))
+```
+Através desse parâmero, curiosamente, os dados se invertem, __The 100__ que na avalição anterior era a de menor média e a de 2ª menor mediana é a série mais recebe nota 10 dentre as observadas.  
+Por outro lado, __House of Cards__ que figurava entre as melhores é a que menos tem avaliações com nota 10.  
 
 ## Regularidade dos episódios
 
+Para avaliar a regularidade dos episódios, traçaremos a linha do tempo dos episódios de cada série.  
 ```{r}
 ggplot(data = series, aes(x = series_ep, y = UserRating, color = series_name)) +
   geom_line() + 
   geom_point(size = 0.8) + 
-  facet_wrap(~series_name, ncol = 1)
+  facet_wrap(~series_name, scales = 'free_x', ncol = 2)
 ```
-
+Essa visualização nos permite verificar com precisão o desempenho de cade episódio de cada série, no entanto não nos ajuda muito a compreender a tendência dos dados, para tal, usaremos a visualização a seguir.  
 
 ```{r}
-series$aval_positiva <- series$r10 + series$r9 + series$r8 + series$r7 + series$r6
-series$aval_negativa <- series$r1 + series$r2 + series$r3 + series$r4 + series$r5
-
-ggplot(data = series, aes(y = aval_positiva , x = series_ep, color = series_name)) +
+ggplot(data = series, aes(y = UserRating , x = series_ep, color = series_name)) +
   geom_smooth() +
-  facet_wrap(~series_name, scales = 'free_x')
-
-ggplot(data = series, aes(x = series_name, y = r10-r1)) +
-  geom_boxplot()
+  facet_wrap(~series_name, scales = 'free_x', ncol = 2)
 ```
+
+Agora é possível observar o comportamento geral de cada série, note que esta visualizão é uma aproximação da anterior. Vemos que em geral não existem variações bruscas na qualidade dos episódios das séries, exceto por _The 100_ que apresentou uma sequência de valores considerávelmente baixos.
+
+Outra observação que pode ser feita é que as séries estão ganhando o gosto do público e sendo melhor avaliadas do que nos seus episódios iniciais.
+
