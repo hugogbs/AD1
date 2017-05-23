@@ -22,8 +22,11 @@ theme_set(theme_minimal())
 ```
 
 ## Descrição dos dados  
+O conjunto de dados a ser estudado aqui, reune informações sobre a avaliação dada no IBDM de algumas séries populares na atualidade. Os dados foram coletados através de métodos descritos [aqui](https://github.com/nazareno/imdb-series).  
 
-Nesta análise serão estudadas as seguintes séries: 
+A base da dados contêm informações de cada episódio da série, sua avaliação no IBDM, o número de votos recebidos por cada episódio e as proporções de votos de 1 a 10 para cada episódio.
+
+Nesta análise serão estudadas as seguintes séries, que foram escolhidas aleatóriamente do conjunto de dados disponível: 
 
 * Agents of S.H.I.E.L.D.
 * House of Cards
