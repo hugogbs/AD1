@@ -17,6 +17,7 @@ knitr::opts_chunk$set(echo = FALSE,
 library(tidyr)
 library(dplyr)
 library(readr)
+library(ggplot2)
 ```
 
 ## Descrição dos dados
