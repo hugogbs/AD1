@@ -30,55 +30,110 @@ series <- read_csv("series_from_imdb.csv")
 ```
 
 
-## O episódios _season finale_ são considerados melhores que os demais?  
+## O episódios _season finale_ são considerados melhores que os demais? 
+
+Os episódios que encerram as temporadas são os que costumam causar mais _frisson_, em geral eles são repletos de suspense, reviravoltas, drama e tudo mais que prenda a nossa atenção e nos deixe sedentos pela próxima temporada.  
+Mas será que as séries estão conseguindo realmente fazer isso? Será que esses episódios são melhores que os demais?  
+Para responder a essa pergunta usamos os dados das 31 séries disponíveis e classificamos os episódios em _Episódio final_ para os episódios que encerram uma temporada de uma séria e _Episódio final_ para os demais e comparamos a qualidade destes dois grupos.
 ```{r}
+  season_finale_eps <- series %>%
+    group_by(series_name, season) %>%
+    summarise(season_ep = max(season_ep))
+  
+  season_finale_eps$is.finale <- TRUE
+  
+  series <- right_join(season_finale_eps, series, by = c("series_name", "season", "season_ep"))
+  
+  series$is.finale <- ifelse(is.na(series$is.finale), FALSE, TRUE)
+series$class_ep <- ifelse(series$is.finale, "Episódio Final", "Episódio Comum")
 
-season_finale_eps <- series %>%
-  group_by(series_name, season) %>%
-  summarise(season_ep = max(season_ep))
+ggplot(series, aes(x = class_ep, y = UserRating, color = class_ep)) +
+  geom_boxplot(outlier.shape = NA) + 
+  scale_y_continuous(breaks = seq(4,10,.5)) +
+  labs(y = "Classificação do Usuário", x = "Tipo do Episódio" ) +
+  theme(legend.position = "none")
+```
+Percebe-se que realmente __os episódios finais apresentam uma classificação superior do que os demais episódios das séries__ se observarmos a mediana de cada grupo.
 
-season_finale_eps$is.finale <- TRUE
+Vamos observar agora específicamente os valores de média e mediana dos episódios comuns e finais, para termos a noção exata da diferença entre eles
 
-series <- right_join(season_finale_eps, series, by = c("series_name", "season", "season_ep"))
+Tipo do Episódio  | Média    | Mediana
+------------- | ------------- | -------------
+Comum | `r round(mean(filter(series, !is.finale)$UserRating), 2)` | `r median(filter(series, !is.finale)$UserRating)`
+Final | `r round(mean(filter(series, is.finale)$UserRating), 2)` | `r median(filter(series, is.finale)$UserRating)`
 
-series$is.finale <- ifelse(is.na(series$is.finale), FALSE, TRUE)
+Agora fica possível mensurar a diferença exata entre os episódios finais das temporadas e os demais além de podermos analisar também a diferença entre a mediana e a média dos dados, que baixa para os dois tipos de episódios, significando a pouca incidência de outliers (dados que são muito diferentes dos demais) na avaliação das séries.
 
-ggplot(series, aes(x = is.finale, y = UserRating)) +
-  geom_boxplot(outlier.shape = NA)
+## Os episódios que encerram as temporadas representam picos na avaliação das séries?
 
-median(filter(series, is.finale)$UserRating)
-median(filter(series, !is.finale)$UserRating)
+Já sabendo que a _season finale_ costuma receber melhores avaliações que os demais episódios, será que no decorrer da série eles representam os picos de avaliação das séries? Em que situação estão as séries antes e depois deles?  
+A base de dados disponível conta com 31 séries, sabendo que pode ser difícil e/ou extenso visualizar o comportamento de todas essas séries, então serão selecionadas as 6 séries estudadas da parte 1 desta mesma atividade, que foram:
 
-mean(filter(series, is.finale)$UserRating)
-mean(filter(series, !is.finale)$UserRating)
+* Agents of S.H.I.E.L.D.
+* House of Cards
+* Orphan Black
+* The 100
+* The Blacklist
+* Vikings  
 
-# Escolher as series usadas na analise anterior!!
-# O episódio final de cada temporada influencia significativamente no desempenho da série?
+Os episódios finais de cada temporada são demarcados por pontos na linha de cada série.
+```{r}
 sub_series <- filter(series, series_name %in% c("Agents of S.H.I.E.L.D.", "House of Cards", "Orphan Black", "The 100", "The Blacklist", "Vikings"))
 
 ggplot(sub_series, aes(x = series_ep, y = UserRating, color = series_name)) +
   geom_line() +
   geom_point(data = filter(sub_series, is.finale), aes(color = series_name)) +
   facet_wrap(~series_name, scales = "free_x", ncol = 2)
+
+
 ```
+É possível perceber que na maioria das vezes o final das temporadas representa um pico de avaliação para a série, mas são excluxivamente eles, existem vários outros episódios ao longo das temporadas que também tem picos de avaliação.  
+Em linhas gerais as séries possuem comportamento bastante irregular, no que diz respeito à avaliação dos episódios, mesmo que a diferença seja baixa de um episódio para outro, existem poucos casos que um grupo de episódios sequenciais apresente avaliações crescentes, pro exemplo; Das que foram estudadas a única que possui esse comportamento é __The 100__ que após uma queda vertiginosa por volta do meio da segunda temporada, consegue uma crescente na avaliação até o meio da terceira temporada praticamente.
 
-
-## Séries com muitos episódios tendem a ser melhor avaliadas ao longo do tempo? 
+## Séries com muitos episódios tendem a ser melhor avaliadas ao longo do tempo?
+Se uma série dura deve-se esperar que ela fique melhor a cada temporada, ou pelo menos que mantenha um nível mínimo de qualidade não é mesmo? É? __Afinal, longevidade é sinônimo de qualidade?__  
+Para responder essa questão usaremos as séries que tem mais de 100 episódios nos nossos dados e estudaremos como se comporta a avaliação dos usuários no decorrer destes episódios. 
+As linhas tracejadas representam a mediana da avaliação de cada série.
 ```{r}
 series_longas <- series %>%
   group_by(series_name) %>%
-  summarise(eps = max(series_ep)) %>%
+  summarise(eps = max(series_ep),
+            mediaUR = mean(UserRating),
+            medianaUR = median(UserRating)) %>%
   filter(eps >= 100)
 
 data_series_longas <- filter(series, series_name %in% c(series_longas$series_name))
 
 ggplot(data_series_longas, aes(x = series_ep, y = UserRating, color = series_name)) +
-  geom_line() +
-  facet_wrap(~series_name, scales = "free_x", ncol = 2)
-
-ggplot(data_series_longas, aes(x = series_ep, y = UserRating, color = series_name)) +
   geom_smooth() +
-  facet_wrap(~series_name, scales = "free_x", ncol = 2)
+  facet_wrap(~series_name, scales = "free_x", ncol = 2) +
+  geom_hline(data = series_longas, aes(yintercept = medianaUR), linetype="dashed", colour="#660066") +
+  theme(legend.position = "none")
+```
+
+Percebemos que na verdade as séries apresentam um __declínio de qualidade__ conforme avançam, algumas uma queda mais leve como __Grey's Anatomy__ e em outras mais acentuado como em __The Simpsons__. É curioso que algumas tem um traço senoidal como __Arrow e Scandal__, elas começam com uma avaliação baixa, atingem seu ápice de qualidade durante a primeira metade da série mas na segunda metade demonstam baixo desempenho.
+
+## E séries curtas, agradam mais os expectadores?
+
+Como visto, a análise do tópico acima as séries longas não apresentam crescimento de qualidade no decorrer dos episódios, na verdade a qualidade cai segundo a avaliação dos usuários, pensando neste sentido será que as séries mais curtas (com até 2 temporadas) atendem melhor às expectativas dos expectador?
+
+```{r}
+series_curtas <- series %>%
+  group_by(series_name) %>%
+  summarise(n_seasons = max(season),
+            mediaUR = mean(UserRating),
+            medianaUR = median(UserRating)) %>%
+  filter(n_seasons <= 2)
+
+data_series_curtas <- filter(series, series_name %in% c(series_curtas$series_name))
+
+ggplot(data_series_curtas, aes(x = series_ep, y = UserRating, color = series_name)) +
+  geom_smooth() +
+  facet_wrap(~series_name, scales = "free_x", ncol = 2) +
+  geom_hline(data = series_curtas, aes(yintercept = medianaUR), linetype="dashed", colour="#660066") +
+  theme(legend.position = "none")
+
 
 ```
+Ao contrário das séries longas, as séries curtas apresentam __melhora na avaliação__ dos episódios se aprensentando através do formato crescente da linha definida para a avaliação das séries.
 
