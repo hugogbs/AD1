@@ -1,0 +1,89 @@
+---
+title: ' Revisitando uma visualização sua'
+author: "Hugo Gabriel"
+subtitle: Problema 2 - Checkpoint 1
+output:
+  html_notebook: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  screenshot.force = FALSE,
+  fig.cap = '',
+  fig.align = 'center')
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(plotly)
+theme_set(theme_minimal())
+```
+
+
+```{r}
+series <- read_csv("series_from_imdb.csv") %>% 
+  filter(series_name %in% c("Agents of S.H.I.E.L.D.", "House of Cards", "Orphan Black", "The 100", "The Blacklist", "Vikings"))
+```
+
+## Descrição dos dados e variáveis
+
+Os dados usados nessa análise são um subconjunto dos dados contidos [aqui](https://raw.githubusercontent.com/nazareno/imdb-series/master/data/series_from_imdb.csv), dele foram escolhidas as seguintes séries:
+
+* Agents of S.H.I.E.L.D.
+* House of Cards
+* Orphan Black
+* The 100
+* The Blacklist
+* Vikings
+
+A fonte de dados é proveniente dos [IMDB](http://www.imdb.com/) que é uma base de dados online de informação sobre música, cinema, filmes, programas e comerciais para televisão e jogos de computador, Hoje pertencente à Amazon.
+
+Quanto às séries selecionadas, temos `r nrow(series)` observações com 18 variáveis associadas. São elas:
+
+* __series_name__: o nome da série 
+* __series_ep__: o número do episódio na série (desconsiderando a temporada)
+* __season__: número da temporada à qual pertence o episódio
+* __season_ep__: número do episódio na temporada
+* __url__: link para a página do episódio no IMDB
+* __Episode__: título do episódio
+* __UserRating__: classificação do episódio de acordo com os usuários do IMBD, explicado [aqui](http://www.imdb.com/help/show_leaf?votestopfaq).
+* __UserVotes__: número de votos recebidos no IMDB
+* __r1, r2, ..., r10__: proporção de usuários que classificaram o episódio com pontuação 1, 2, ..., 10
+
+
+### Variáveis selecionadas
+
+Dentre as 18 variáveis disponíveis utilizarei apenas algumas delas na análise, que são:
+
+* series_name
+* series_ep 
+* UserRating: Por representar uma nota pode variar entre 0 e 10 com variação de uma casa decimal, ou seja, 0, 0.1, ..., 9.9, 10. E possui as seguintes atribuições:
+```{r}
+summary(series$UserRating)
+```
+
+## Qual das séries escolhida tem episódios de qualidade mais irregular segundo o IMDB? A diferença é grande? Pequena?
+
+Para responder essa questão, analisaremos a seguinte visualização:
+
+```{r}
+g <- ggplot(data = series, aes(x = series_ep, y = UserRating, color = as.factor(season))) +
+  geom_line() +
+  geom_point(size = 0.8) + 
+  scale_x_continuous(breaks = seq(0, 100, 5)) +
+  scale_y_continuous(breaks = seq(7, 10, 1)) +
+  facet_wrap(~series_name, scales = "free_x", ncol = 1) +
+  labs(x = "Episódio", y = "Nota")
+
+ggplotly(g, width = 700, height = 600, tooltip = c("color", "x", "y"))
+```
+De acordo com o que podemos observar no gŕáfico, a qualidade dos episódios varia constamente em todas as séries, só que, em geral, não de maneira drástica. A única série que possui episódios com comportamento próximo ao linear nas avaliações é _The 100_ já é a que possui apenas uma mudança de qualidade entre um episódio e outro.
+
+Já as séries _Agents of S.H.I.E.L.D._ e _Vikings_ aparentam tem variações constantes entre um episódio e outro, mesmo que os seus valores se concentrem entre 8 e 9 existem mais pico nos seus gráficos que nos das outras séries.
+
