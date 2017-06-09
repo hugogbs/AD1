@@ -87,3 +87,7 @@ De acordo com o que podemos observar no gŕáfico, a qualidade dos episódios va
 
 Já as séries _Agents of S.H.I.E.L.D._ e _Vikings_ aparentam tem variações constantes entre um episódio e outro, mesmo que os seus valores se concentrem entre 8 e 9 existem mais pico nos seus gráficos que nos das outras séries.
 
+```{r}
+unique(series$series_name)
+```
+
