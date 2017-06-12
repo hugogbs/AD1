@@ -8,15 +8,39 @@
 #
 
 library(shiny)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(plotly)
 
+theme_set(theme_minimal())
+series <- read_csv("series_from_imdb.csv")
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
-   
-  output$distPlot <- renderPlot({
+  output$lineplot <- renderPlot({
     ggplot(
-        data = series %>% filter(series_name %in% c(input$select)),
-        aes(x = series_ep, y = UserRating, color = as.factor(season))) +
-        geom_line()
+      data = series %>% filter(series_name %in% c(input$select)),
+      aes(x = series_ep, y = UserRating, color = as.factor(season))) +
+    geom_line()
+  })
+  
+  output$boxplot <- renderPlot({
+    ggplot(
+      data = series %>% filter(series_name %in% c(input$select)),
+      aes(x = as.factor(season), y = UserRating, color = as.factor(season))) +
+    geom_boxplot()
+    })
+  
+  output$smoothplot <- renderPlot({
+    ggplot(
+    data = series %>% filter(series_name %in% c(input$select)),
+    aes(x = series_ep, y = UserRating, color = as.factor(season))) +
+    geom_smooth()
+  })
+  output$menu <- renderMenu({
+    sidebarMenu(
+      menuItem("Menu item", icon = icon("calendar"))
+    )
   })
   
 })
