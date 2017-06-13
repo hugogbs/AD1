@@ -12,43 +12,29 @@ library(shiny)
 library(shinydashboard)
 
 dashboardPage(
-  dashboardHeader(title = "Séries"),
+  dashboardHeader(),
+  
   dashboardSidebar(
     selectInput("select", label = h5("Escolha a sua série:"), 
-                choices = unique(series$series_name)),
-    sidebarSearchForm(textId = "searchText", buttonId = "searchButton",
-                      label = "Search...")
+                choices = unique(series$series_name), multiple = T)
   ),
+  
   dashboardBody(
+    
     fluidRow(
-      box(plotOutput("lineplot", width = "100%"), title = "Desempenho da série", status = "primary", solidHeader = TRUE,
-          width = 6, collapsible = TRUE),
-      box(plotOutput("boxplot", width = "100%"), title = "Sumário da(s) temporada(s)", status = "primary", solidHeader = TRUE,
-          width = 6, collapsible = TRUE),
-      box(plotOutput("smoothplot", width = "100%"), title = "Comportamento da série", status = "primary", solidHeader = TRUE,
-          width = 6, collapsible = TRUE)
+      box(width = 12,
+          title = "Como está a minha série?", status = "primary", solidHeader = TRUE,
+          collapsible = TRUE,
+          "Você sabe como anda o desempenho da sua série predileta?", br(), 
+          "Pra você, qual é a melhor temporada da sua série do coração? Será que o restante dos expectadores concorda com você?", br(),
+          "Aqui você pode obter as respostas para essas e muitas outras perguntas. Divirta-se!!!"
+      ),
+      
+      box(plotlyOutput("lineplot", width = "100%"), title = "Desempenho da série", status = "primary", solidHeader = TRUE,
+          width = 12, collapsible = TRUE),
+      box(plotlyOutput("boxplot", width = "100%"), title = "Sumário geral da série", status = "primary", solidHeader = TRUE,
+          width = 4, collapsible = TRUE),
+      box(plotlyOutput("boxplotSeason", width = "100%"), title = "Comportamento da série por temporada", status = "primary", solidHeader = TRUE,
+          width = 8, collapsible = TRUE)
   ))
 )
-# 
-# # Define UI for application that draws a histogram
-# shinyUI(fluidPage(
-#   
-#   # Application title
-#   titlePanel("Séries"),
-#   
-#   # Sidebar with a slider input for number of bins 
-#   sidebarLayout(
-#     position = "right",
-#     
-#     
-#     sidebarPanel(
-#       selectInput("select", label = h4("Escolha a sua série"), 
-#                    choices = unique(series$series_name))
-#     ),
-#     
-#     # Show a plot of the generated distribution
-#     mainPanel(
-#        plotOutput("distPlot")
-#     )
-#   )
-# ))
