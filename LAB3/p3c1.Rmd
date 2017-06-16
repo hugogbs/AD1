@@ -1,0 +1,102 @@
+---
+title: "Agrupamento com 2 dimensões"
+subtitle: "Problema 3 - Checkpoint 1"
+author: "Hugo Gabriel"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  screenshot.force = FALSE,
+  fig.cap = '',
+  fig.align = 'center')
+```
+
+```{r}
+library(tidyverse, warn.conflicts = F)
+library(rvest)
+library(plotly, warn.conflicts = F)
+library(cluster)
+library(ggdendro)
+theme_set(theme_light())
+source("plota_solucoes_hclust.R")
+
+```
+
+```{r}
+from_page <- read_html("https://www.rottentomatoes.com/celebrity/meryl_streep/") %>% 
+    html_node("#filmographyTbl") %>% # A sintaxe da expressão é de um seletor à lá JQuery: https://rdrr.io/cran/rvest/man/html_nodes.html 
+    html_table(fill=TRUE) %>% # Faz parse
+    as.tibble()
+
+filmes = from_page %>% 
+    filter(RATING != "No Score Yet", 
+           `BOX OFFICE` != "—", 
+           CREDIT != "Executive Producer") %>%
+    mutate(RATING = as.numeric(gsub("%", "", RATING)), 
+           `BOX OFFICE` = as.numeric(gsub("[$|M]", "", `BOX OFFICE`))) %>% 
+    filter(`BOX OFFICE` >= 1) # Tem dois filmes que não parecem ter sido lançados no mundo todo
+```
+
+```{r}
+filmes %>%
+  ggplot(aes(x = RATING, y = `BOX OFFICE`)) + 
+  geom_point()
+```
+```{r}
+p = filmes %>% 
+    ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
+    geom_point() 
+p
+ggplotly(p)
+
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = RATING)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
+
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
+```
+
+```{r}
+agrupamento_h_2d = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "centroid")
+
+ggdendrogram(agrupamento_h_2d, rotate = TRUE)
+
+data.frame(k = NROW(agrupamento_h_2d$height):1, 
+           height = agrupamento_h_2d$height) %>% 
+    ggplot(aes(x = k, y = height)) + 
+    geom_line(colour = "grey") + 
+    geom_point() + 
+    labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção")
+
+distancias = filmes %>% 
+    select(RATING) %>%
+    dist(method = "euclidean")
+
+agrupamento_hs = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "complete")
+
+
+plot(silhouette(cutree(agrupamento_hs, k = 4), distancias))
+plot(silhouette(cutree(agrupamento_hs, k = 2), distancias))
+```
+```{r}
+plota_hclusts_2d(agrupamento_h_2d, 
+                 filmes, 
+                 c("RATING", "`BOX OFFICE`"), 
+                 linkage_method = "centroid", ks = 1:6)
+```
+
+
+
