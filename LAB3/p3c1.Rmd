@@ -1,12 +1,13 @@
 ---
-title: "Agrupamento com 2 dimensões"
+title: "Os tipos de filme de Meryl Streep"
 subtitle: "Problema 3 - Checkpoint 1"
 author: "Hugo Gabriel"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,
+knitr::opts_chunk$set(
+  echo = FALSE,
   warning = FALSE,
   message = FALSE,
   screenshot.force = FALSE,
@@ -20,11 +21,16 @@ library(rvest)
 library(plotly, warn.conflicts = F)
 library(cluster)
 library(ggdendro)
+library(cowplot)
 theme_set(theme_light())
 source("plota_solucoes_hclust.R")
 
 ```
-
+## Introdução
+  Este relatório tem o objetivo de classificar os diferentes tipos de filme da atriz norte-americana Meryl Streep.
+  ..........^[[2]](https://pt.wikipedia.org/wiki/Meryl_Streep)^
+  
+  # ![](streep.jpg)
 ```{r}
 from_page <- read_html("https://www.rottentomatoes.com/celebrity/meryl_streep/") %>% 
     html_node("#filmographyTbl") %>% # A sintaxe da expressão é de um seletor à lá JQuery: https://rdrr.io/cran/rvest/man/html_nodes.html 
@@ -40,25 +46,43 @@ filmes = from_page %>%
     filter(`BOX OFFICE` >= 1) # Tem dois filmes que não parecem ter sido lançados no mundo todo
 ```
 
+## Descrição dos dados de variáveis
+Os dados usados nessa análise são do [Rotten Tomatoes](https://www.rottentomatoes.com/) que é um site americano especializado em resumos, informações e novidades sobre filmes, séries, curtas-metragens e videos musicais.^[[2]](https://pt.wikipedia.org/wiki/Rotten_Tomatoes)^
+
+Os dados obtidos contam com as seguintes variáveis:  
+
+Dado           | Descrição
+-------------- | -------------------------------------------------------------------------------------------------
+**RATING**     | Representa a porcentagem de críticas profissionais que são positivas para um determinado filme
+**TITLE**      | Nome do Filme
+**CREDIT**     | Papel interpretado pela atriz
+**BOX OFFICE** | Valor arrecadado pela bilhereria do filme (em milhões de dólares)
+**YEAR**       | Ano de lançamento do filme
+
+Para agrupar os filmes usaremos as variáveIs **Box Office** e **Rating** pois elas de mostraram mais úteis e significativas para classificar o trabalho da atriz.  
+
+Ao todo estão disponíveis no site 97 filmes nos quais a atriz interpretou, no entanto, não foi possível utilizar todos eles na análise pois nem todos tinham valores para as variáveis usadas neste relatório, então ao considerar apenas os filmes que possuiam valores de Box Office e de Rating ficamos com 24 observações para a nossa análise com o seguinte comportamento:
+
+* **Rating**
+    + Valor Máximo: `r max(filmes$RATING)`%
+    + Valor Mínimo: `r min(filmes$RATING)`%
+    + Média: `r round(mean(filmes$RATING), 2)`%
+    + Mediana: `r median(filmes$RATING)`%  
+  
+* **Box Office**
+    + Valor Máximo: $`r max(filmes$'BOX OFFICE')`M
+    + Valor Mínimo: $`r min(filmes$'BOX OFFICE')`M
+    + Média: $`r round(mean(filmes$'BOX OFFICE'), 2)`M
+    + Mediana: $`r median(filmes$'BOX OFFICE')`M
+
+## Agrupamento
 ```{r}
-filmes %>%
+ggplotly(
+  filmes %>%
   ggplot(aes(x = RATING, y = `BOX OFFICE`)) + 
-  geom_point()
-```
-```{r}
-p = filmes %>% 
-    ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
-    geom_point() 
-p
-ggplotly(p)
+  geom_point(color = "red")
+)
 
-filmes %>% 
-    ggplot(aes(x = "Filmes", y = RATING)) + 
-    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
-
-filmes %>% 
-    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
-    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
 ```
 
 ```{r}
@@ -75,6 +99,7 @@ data.frame(k = NROW(agrupamento_h_2d$height):1,
     ggplot(aes(x = k, y = height)) + 
     geom_line(colour = "grey") + 
     geom_point() + 
+    coord_flip() + 
     labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção")
 
 distancias = filmes %>% 
@@ -89,7 +114,6 @@ agrupamento_hs = filmes %>%
 
 
 plot(silhouette(cutree(agrupamento_hs, k = 4), distancias))
-plot(silhouette(cutree(agrupamento_hs, k = 2), distancias))
 ```
 ```{r}
 plota_hclusts_2d(agrupamento_h_2d, 
