@@ -22,6 +22,7 @@ library(plotly, warn.conflicts = F)
 library(cluster)
 library(ggdendro)
 library(cowplot)
+library(RColorBrewer)
 theme_set(theme_light())
 source("plota_solucoes_hclust.R")
 
@@ -30,7 +31,8 @@ source("plota_solucoes_hclust.R")
   Este relatório tem o objetivo de classificar os diferentes tipos de filme da atriz norte-americana Meryl Streep.
   ..........^[[2]](https://pt.wikipedia.org/wiki/Meryl_Streep)^
   
-  # ![](streep.jpg)
+![](streep.jpg)
+
 ```{r}
 from_page <- read_html("https://www.rottentomatoes.com/celebrity/meryl_streep/") %>% 
     html_node("#filmographyTbl") %>% # A sintaxe da expressão é de um seletor à lá JQuery: https://rdrr.io/cran/rvest/man/html_nodes.html 
@@ -44,6 +46,14 @@ filmes = from_page %>%
     mutate(RATING = as.numeric(gsub("%", "", RATING)), 
            `BOX OFFICE` = as.numeric(gsub("[$|M]", "", `BOX OFFICE`))) %>% 
     filter(`BOX OFFICE` >= 1) # Tem dois filmes que não parecem ter sido lançados no mundo todo
+
+
+filmes.log <- filmes %>%
+  mutate_each(funs(log(. + 1)), -c(TITLE, CREDIT, YEAR))
+
+filmes.scaled <- filmes.log %>%
+  mutate_each(funs(scale(.) %>% c), -c(TITLE, CREDIT, YEAR))
+
 ```
 
 ## Descrição dos dados de variáveis
@@ -75,51 +85,62 @@ Ao todo estão disponíveis no site 97 filmes nos quais a atriz interpretou, no 
     + Média: $`r round(mean(filmes$'BOX OFFICE'), 2)`M
     + Mediana: $`r median(filmes$'BOX OFFICE')`M
 
-## Agrupamento
+O gráfico abaixo apresenta o comportamento as variáveis juntas.
 ```{r}
-ggplotly(
+
   filmes %>%
   ggplot(aes(x = RATING, y = `BOX OFFICE`)) + 
   geom_point(color = "red")
-)
 
 ```
 
+## Agrupamento
+
+Para decidir sobre o número de grupos que teremos observaremos o dendograma a seguir, que é uma visualização que mostra como foi a execução do método de agrupamento usado, quanto mais longa uma linha mais dissimilaridade teve que ser incorporada para unir os filmes em um único grupo. Observe que ao final, temos um grupo único com todos os filmes.
 ```{r}
-agrupamento_h_2d = filmes %>% 
-    column_to_rownames("TITLE") %>%
+row.names(filmes.scaled) = NULL
+
+agrupamento_h = filmes %>% 
+    column_to_rownames("TITLE") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
     select(RATING, `BOX OFFICE`) %>%
-    dist(method = "euclidean") %>% 
-    hclust(method = "centroid")
+    dist(method = "euclidian") %>% 
+    hclust(method = "ward.D")
 
-ggdendrogram(agrupamento_h_2d, rotate = TRUE)
+ggdendrogram(agrupamento_h, rotate = T, size = 2) 
+```
+Parece ser uma boa escolha dividir os filmes em **5 grupos**, os gráfico abaixo podem nos dar mais segurança sobre esta decisão.
 
-data.frame(k = NROW(agrupamento_h_2d$height):1, 
-           height = agrupamento_h_2d$height) %>% 
+```{r}
+data.frame(k = NROW(agrupamento_h$height):1, 
+           height = agrupamento_h$height) %>% 
     ggplot(aes(x = k, y = height)) + 
     geom_line(colour = "grey") + 
     geom_point() + 
     coord_flip() + 
+    geom_vline(xintercept = 5, colour = "red") +
     labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção")
-
-distancias = filmes %>% 
-    select(RATING) %>%
-    dist(method = "euclidean")
-
-agrupamento_hs = filmes %>% 
-    column_to_rownames("TITLE") %>%
-    select(RATING) %>%
-    dist(method = "euclidean") %>% 
-    hclust(method = "complete")
-
-
-plot(silhouette(cutree(agrupamento_hs, k = 4), distancias))
 ```
+
 ```{r}
-plota_hclusts_2d(agrupamento_h_2d, 
+dists <- dist(select(filmes.scaled, -c(TITLE, CREDIT, YEAR)), method = 'euclidean')
+colors <- brewer.pal(5, 'Set2')
+plot(silhouette(cutree(agrupamento_h, k = 5), dists), col = colors)
+```
+
+Através dos gráficos temos indícios ainda mais fortes que com 5 grupos comseguiremos um bom agrupamento.
+Logo, nosso dendograma seria "cortado", onde passa a linha vermelha:
+
+```{r}
+ggdendrogram(agrupamento_h, rotate = T, size = 2) + 
+    geom_hline(yintercept = 60, colour = "red")
+```
+
+E com isso obtemos os seguintes grupos:
+```{r}
+  plota_hclusts_2d(agrupamento_h, 
                  filmes, 
                  c("RATING", "`BOX OFFICE`"), 
-                 linkage_method = "centroid", ks = 1:6)
+                 linkage_method = "ward.D", ks = 5)
 ```
 
 
