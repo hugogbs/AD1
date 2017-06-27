@@ -1,0 +1,87 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  screenshot.force = FALSE,
+  fig.cap = '',
+  fig.align = 'center')
+```
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(plotly, warn.conflicts = F)
+library(cluster)
+library(ggdendro)
+library(cowplot)
+library(RColorBrewer)
+library(broom)
+
+theme_set(theme_light())
+```
+
+```{r}
+filmes_a <- read_csv("character_list5.csv")
+filmes_b <- read_csv("meta_data7.csv")
+
+cod_gender <- data_frame(gender = c("m", "f"), gender_cod = c(0, 1))
+
+filmes <- inner_join(filmes_a, filmes_b, by = "script_id") %>%
+  filter(age != "NULL", ! is.na(gross), ! is.na(words), ! is.na(year)) %>%
+  inner_join(cod_gender, by = "gender") %>%
+  mutate(age = as.numeric(gsub("%", "", age))) %>%
+  mutate(id = paste(title, ":", imdb_character_name)) %>%
+  mutate(gender = gender_cod) %>%
+  select(id, title, imdb_character_name, gender, age, words, gross, year)
+
+lixo <- filmes %>%
+  group_by(id) %>%
+  summarise(n = n()) %>%
+  filter(n > 1) %>%
+  select(id)
+
+filmes <- filmes %>%
+  anti_join(lixo, by = 'id')
+
+num_by_gender <- filmes %>% 
+  group_by(gender) %>%
+  summarise(n = n())
+
+filmes.log <- filmes %>%
+  mutate_each(funs(log(. + 1)), -c(id, title, imdb_character_name))
+
+filmes.scaled <- filmes.log %>%
+  mutate_each(funs(scale(.) %>% c), -c(id, title, imdb_character_name))
+```
+
+```{r}
+row.names(filmes.scaled) = NULL
+n_clusters = 4
+# O agrupamento de fato:
+km = filmes.scaled %>% 
+    select(gender, age, words, gross, year) %>% 
+    kmeans(centers = n_clusters, nstart = 20)
+
+# O df em formato longo, para visualização 
+filmes.scaled.km.long = km %>% 
+    augment(filmes.scaled) %>% # Adiciona o resultado de km 
+                            # aos dados originais dw2.scaled em 
+                            # uma variável chamada .cluster
+    gather(key = "variável", 
+           value = "valor", 
+           gender, age, words, gross, year) # = move para long todas as 
+                                            # variávies menos repository_language 
+                                            # e .cluster
+filmes.scaled.km.long %>% 
+    ggplot(aes(x = `variável`, y = valor, group = id, colour = .cluster)) + 
+    #geom_point(alpha = 0.2) + 
+    geom_line(alpha = .5) + 
+    facet_wrap(~ .cluster) 
+```
+
