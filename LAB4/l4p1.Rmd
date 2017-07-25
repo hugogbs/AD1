@@ -1,0 +1,93 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(resample)
+library(GGally)
+library(knitr)
+library(lubridate)
+library(chron)
+theme_set(theme_bw())
+```
+
+```{r}
+dados <- read_csv("github-users-committing-filetypes.csv") %>%
+  mutate(data = paste(month_day, the_month, the_year, sep="-")) %>%
+  mutate(data = as_date(data)) %>%
+  mutate(fds = is.weekend(data)) %>%
+  mutate(dia_da_semana = weekdays(data))
+  
+dados_group <- dados %>%
+  group_by(file_extension) %>%
+  summarize(n = n(),
+            users_mean = mean(users),
+            users_median = median(users),
+            tot_users = sum(users))
+```
+Usaremos nesse estudo amostra dados de dados da atividade global do github. Os dados brutos contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e 2017 no [Github](https://github.com/).
+Os dados possuem as seguintes informações:  
+
+  * __file_extension__: Determina o tipo de arquivo que foi alterado e por consequência conseguimos determinar a linguagem de programação usada nesse arquivo.  
+  * __month_day__: Dia do mês referente a observação.  
+  * __the_month__: Mês referente a observação.  
+  * __the_year__: Ano referente a observação.  
+  * __users__: Número de pessoas que editaram arquivos com a extensão observada.  
+
+O objetivo é comparar a duas linguagens de programação em função da sua popularidade nos dias úteis e nos nos fins de semana.
+
+Nos dados dispomos de `r nrow(dados_group)` linguagens disponíveis, mas estamos interessados em apenas 2 delas, então usaremos as mais populares, ou seja, as que tiveram mais usuários no período estudado. Que são:
+```{r}
+head(select(arrange(dados_group, desc(tot_users)), c("file_extension", "tot_users")) , 2)
+
+dados <- dados %>%
+  filter(file_extension %in% c("md", "js"))
+```
+
+
+Escolha duas linguagens de programação que lhe interessem e responda o seguinte: 
+
+### 1 - Para cada uma delas, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
+```{r}
+
+dados %>%
+  filter(file_extension == "md") %>%
+  group_by(dia_da_semana) %>%
+  summarise(usuarios = sum(users)) %>%
+  ggplot(aes(x = dia_da_semana, y = usuarios)) + 
+  geom_point()  +
+  scale_x_discrete(limits=c("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"))
+
+
+```
+
+```{r}
+dados %>%
+  filter(file_extension == "js") %>%
+  group_by(fds) %>%
+  summarise(users = sum(users)) %>%
+  ggplot(aes(x = fds, y = users)) +
+  geom_bar(stat = "identity")
+```
+```{r}
+dados %>%
+  filter(file_extension == "md") %>%
+  group_by(fds) %>%
+  summarise(users = if(fds){sum(users)/2} else {sum(users)/5}) %>%
+  ggplot(aes(x = fds, y = users)) +
+  geom_bar(stat = "identity")
+```
+```{r}
+dados %>%
+  filter(file_extension == "js") %>%
+  group_by(fds) %>%
+  summarise(users = if(fds){sum(users)/2} else {sum(users)/5}) %>%
+  ggplot(aes(x = fds, y = users)) +
+  geom_bar(stat = "identity")
+```
+```
+
+### 2 - Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
