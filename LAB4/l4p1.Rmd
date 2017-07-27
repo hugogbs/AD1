@@ -112,7 +112,7 @@ data.frame(median.md.diff) %>%
   geom_hline(yintercept = 0, colour = "darkblue")
 ```
 
-Essa visualização exibe, com 95% de confiança, a diferença das medianas entre a atividade no fim de semana e nos dias úteis. O intervalo é de `r median.md.diff`. Como esse intervalo inclui o zero, não é possível afirmar com segurança que Markdown é mais usado na semana ou no fim de semana.  
+Essa visualização exibe, com 95% de confiança, a diferença das medianas entre a atividade no fim de semana e nos dias úteis. O intervalo é de `r median.md.diff`. Como esse intervalo _não inclui o zero_, podemos concluir que existe mais atividade dos programadores durante a semana do que no sábado e no domingo.
 
 Para __JavaScript__:
 
@@ -142,7 +142,7 @@ data.frame(median.js.diff) %>%
   geom_errorbar(width = .2) + 
   geom_hline(yintercept = 0, colour = "darkblue")
 ```
-No caso de JavaScript a diferença das medianas com 95% de confiança está entre `r median.js.diff` o que, como no caso anterior, inclui o zero, então não é possível determinar a existência de uma diferença significativa de commits nos períodos estudados.
+No caso de JavaScript a diferença das medianas com 95% de confiança está entre `r median.js.diff` o que, como no caso anterior, está acima do zero, logo, há uma diferença significativa entre os número de usuários dessa linguagem, sendo de volume maior durante a semana que no final dela.
 
 ### 2 - Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
 
