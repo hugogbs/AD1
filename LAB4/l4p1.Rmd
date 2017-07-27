@@ -1,93 +1,163 @@
 ---
-title: "Untitled"
+title: "Análise da atividade do GitHub"
+subtitle: "Problema 4 - Checkpoint 1"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align="center")
+
 library(tidyverse)
 library(resample)
 library(GGally)
 library(knitr)
 library(lubridate)
 library(chron)
+
 theme_set(theme_bw())
+
 ```
+## Descrição dos Dados
+
+Usaremos nesse estudo __amostra__ de dados da atividade global do github. Os dados brutos contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e 2017 no [Github](https://github.com/).
 
 ```{r}
-dados <- read_csv("github-users-committing-filetypes.csv") %>%
-  mutate(data = paste(month_day, the_month, the_year, sep="-")) %>%
-  mutate(data = as_date(data)) %>%
-  mutate(fds = is.weekend(data)) %>%
-  mutate(dia_da_semana = weekdays(data))
-  
-dados_group <- dados %>%
-  group_by(file_extension) %>%
-  summarize(n = n(),
-            users_mean = mean(users),
-            users_median = median(users),
-            tot_users = sum(users))
+dados <- read.csv("github-users-committing-filetypes.csv")
 ```
-Usaremos nesse estudo amostra dados de dados da atividade global do github. Os dados brutos contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e 2017 no [Github](https://github.com/).
-Os dados possuem as seguintes informações:  
+
+Os dados originais possuem as seguintes informações:  
 
   * __file_extension__: Determina o tipo de arquivo que foi alterado e por consequência conseguimos determinar a linguagem de programação usada nesse arquivo.  
   * __month_day__: Dia do mês referente a observação.  
   * __the_month__: Mês referente a observação.  
   * __the_year__: Ano referente a observação.  
-  * __users__: Número de pessoas que editaram arquivos com a extensão observada.  
+  * __users__: Número de pessoas que editaram arquivos com a extensão observada.
 
-O objetivo é comparar a duas linguagens de programação em função da sua popularidade nos dias úteis e nos nos fins de semana.
+Para facilitar o estudo serão aplicadas algumas transformações nos dados, de forma a agrupar a data em um único campo e determinar a que dia da semana a data se refere.
 
-Nos dados dispomos de `r nrow(dados_group)` linguagens disponíveis, mas estamos interessados em apenas 2 delas, então usaremos as mais populares, ou seja, as que tiveram mais usuários no período estudado. Que são:
 ```{r}
-head(select(arrange(dados_group, desc(tot_users)), c("file_extension", "tot_users")) , 2)
-
 dados <- dados %>%
-  filter(file_extension %in% c("md", "js"))
+mutate(data = paste(month_day, the_month, the_year, sep="-")) %>%
+  mutate(data = as_date(data)) %>%
+  mutate(fds = is.weekend(data)) %>%
+  mutate(dia_da_semana = weekdays(data))
+```
+Deste modo, serão incluidas as colunas:
+
+  * __data__: Data referente à modificação.
+  * __fds__: Valor lógico que indica se a data é um fim de semana (sábado ou domingo) ou não.
+  * __dia_da_semana__: Nome do dia da semana a que se refere a data.
+
+O objetivo principal é compararmos duas linguagens de programação em função da sua popularidade nos dias úteis e nos nos fins de semana.
+
+Nos dados dispomos de `r length(unique(dados$file_extension))` linguagens, mas estamos interessados em apenas 2 delas, então usaremos as mais populares, ou seja, as que tiveram mais usuários no período estudado. Que são:
+
+```{r}
+dados_group <- dados %>%
+  group_by(file_extension) %>%
+  summarize(tot_users = sum(users))
+
+kable(x = head(arrange(dados_group, desc(tot_users)), 2),
+      col.names = c ("Extensão", "Total de usuários"),
+        align = c('c'))
 ```
 
+Assim, lidaremos com as linguagens __JavaScript__ e __Markdown__
 
-Escolha duas linguagens de programação que lhe interessem e responda o seguinte: 
+```{r}
+dados_js <- dados %>%
+  filter(file_extension == "js")
 
+dados_md <- dados %>%
+  filter(file_extension == "md")
+```
+
+### JavaScript
+JavaScript é uma linguagem de programação interpretada. É atualmente a principal linguagem para programação client-side em navegadores web.^[[1](https://pt.wikipedia.org/wiki/JavaScript)]^
+
+### Markdown
+Markdown é uma linguagem simples de marcação originalmente criada por John Gruber e Aaron Swartz. Markdown converte seu texto em XHTML válido.^[[2](https://pt.wikipedia.org/wiki/Markdown)]^
+
+## Perguntas
 ### 1 - Para cada uma delas, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
-```{r}
 
-dados %>%
-  filter(file_extension == "md") %>%
+Neste caso, determinaremos o intervalo de confiança para a atividade dos programadores no dias úteis e no fim de semana. Usaremos a mediana, por ser uma medida estatística mais robusta.
+
+Para __Markdown__:
+
+```{r}
+dados_md %>%
   group_by(dia_da_semana) %>%
-  summarise(usuarios = sum(users)) %>%
+  summarise(usuarios = median(users)) %>%
   ggplot(aes(x = dia_da_semana, y = usuarios)) + 
-  geom_point()  +
-  scale_x_discrete(limits=c("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"))
-
-
+  geom_point() +
+  scale_x_discrete(limits=c("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo")) +
+  labs(title = "Atividade diária dos programadores de Markdown", x = "Dia da semana", y = "Mediados de usuários")
 ```
+É possível perceber uma diferença significativa de comportamento no fim de semana em relação aos dias úteis da semana.
+No entanto, como estamos interessados em obter conclusões a cerca de toda população de programadores em Markdown, e não somente sobre a amosta com a qual estamos lidando, usaremos _bootstrap_ que é uma técnica de amostragem usada para realizar inferência e obter também  o intervalo de confiança da diferença da atividade dos programadores Markdown durante a semana e no fim de semama.
 
 ```{r}
-dados %>%
-  filter(file_extension == "js") %>%
-  group_by(fds) %>%
-  summarise(users = sum(users)) %>%
-  ggplot(aes(x = fds, y = users)) +
-  geom_bar(stat = "identity")
+median.md <- bootstrap2(dados_md$users,
+                        treatment = dados_md$fds,
+                        median,
+                        R = 10000)
+
+median.md.diff <- CI.percentile(median.md, probs = c(.025, .975))
+
+data.frame(median.md.diff) %>% 
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkblue")
 ```
+
+Essa visualização exibe, com 95% de confiança, a diferença das medianas entre a atividade no fim de semana e nos dias úteis. O intervalo é de `r median.md.diff`. Como esse intervalo inclui o zero, não é possível afirmar com segurança que Markdown é mais usado na semana ou no fim de semana.  
+
+Para __JavaScript__:
+
 ```{r}
-dados %>%
-  filter(file_extension == "md") %>%
-  group_by(fds) %>%
-  summarise(users = if(fds){sum(users)/2} else {sum(users)/5}) %>%
-  ggplot(aes(x = fds, y = users)) +
-  geom_bar(stat = "identity")
+dados_js %>%
+  group_by(dia_da_semana) %>%
+  summarise(usuarios = median(users)) %>%
+  ggplot(aes(x = dia_da_semana, y = usuarios)) + 
+  geom_point() +
+  scale_x_discrete(limits=c("segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo")) +
+  labs(title = "Atividade diária dos programadores de JavaScript", x = "Dia da semana", y = "Mediados de usuários")
 ```
+
+Como no caso anterior, é observada uma queda de produtividade nos finais de semana, mas, sob as meśmas justificativas também lançaremos mão aqui das mesmas técnicas para obter conclusões sobre a população.
+
 ```{r}
-dados %>%
-  filter(file_extension == "js") %>%
-  group_by(fds) %>%
-  summarise(users = if(fds){sum(users)/2} else {sum(users)/5}) %>%
-  ggplot(aes(x = fds, y = users)) +
-  geom_bar(stat = "identity")
+median.js <- bootstrap2(dados_js$users,
+                        treatment = dados_js$fds,
+                        median,
+                        R = 10000)
+
+median.js.diff <- CI.percentile(median.js, probs = c(.025, .975))
+
+data.frame(median.js.diff) %>% 
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkblue")
 ```
-```
+No caso de JavaScript a diferença das medianas com 95% de confiança está entre `r median.js.diff` o que, como no caso anterior, inclui o zero, então não é possível determinar a existência de uma diferença significativa de commits nos períodos estudados.
 
 ### 2 - Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
+
+Aqui estamos interessados apenas na variação que ocorre nos finais de semana, e ao invés da esturamos separadamente as linguagens, faremos a comparação delas
+```{r}
+
+sd.diff <- bootstrap2(data = (dados_js %>% filter(fds == TRUE))$users,
+                      data2 = (dados_md %>% filter(fds == TRUE))$users,
+                      sd,
+                      R = 10000)
+sd.diff.ci <- CI.percentile(median.js, probs = c(.025, .975))
+
+
+data.frame(sd.diff.ci) %>% 
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkblue")
+```
+Usamos o desvio padrão para comparar a variação das duas linguagens, e temos com 95% de confiança que a diferença do desvio padrão de cada linguagem está entre `r sd.diff.ci`. Como esse intervalo inclui o zero não é possível determinar com segurança que linguagem varia mais no fim de semana.
+
