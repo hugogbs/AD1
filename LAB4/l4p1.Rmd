@@ -162,20 +162,3 @@ data.frame(sd.diff.ci) %>%
   geom_hline(yintercept = 0, colour = "darkblue")
 ```
 Usamos o desvio padrão para comparar a variação das duas linguagens, e temos com 95% de confiança que a diferença do desvio padrão de cada linguagem está entre `r sd.diff.ci`. Como esse intervalo inclui o zero não é possível determinar com segurança que linguagem varia mais no fim de semana.
-
-```{r}
-dados_java <- dados %>%
-  filter(file_extension == "java")
-median.java <- bootstrap2(dados_java$users,
-                        treatment = dados_java$fds,
-                        median,
-                        R = 10000)
-
-median.java.diff <- CI.percentile(median.java, probs = c(.025, .975))
-
-data.frame(median.java.diff) %>% 
-  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
-  geom_errorbar(width = .2) + 
-  geom_hline(yintercept = 0, colour = "darkblue")
-```
-
