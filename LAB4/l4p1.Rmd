@@ -13,6 +13,8 @@ library(GGally)
 library(knitr)
 library(lubridate)
 library(chron)
+library(highcharter)
+library(xts)
 
 theme_set(theme_bw())
 
@@ -74,9 +76,36 @@ dados_md <- dados %>%
 
 ### JavaScript
 JavaScript é uma linguagem de programação interpretada. É atualmente a principal linguagem para programação client-side em navegadores web.^[[1](https://pt.wikipedia.org/wiki/JavaScript)]^
+A seguir observamos a distribuição de usuários dessa linguagem ao longo do tempo.
+```{r}
+
+dados_js_m <- dados_js %>%
+  select(-c(file_extension, fds, dia_da_semana)) %>%
+  remove_rownames %>% 
+  column_to_rownames(var="data") %>%
+  as.xts()
+
+highchart(type = "stock") %>% 
+  hc_title(text = "Timeline da Atividade de JavaScript") %>%
+  hc_add_series(dados_js_m)
+```
+
 
 ### Markdown
 Markdown é uma linguagem simples de marcação originalmente criada por John Gruber e Aaron Swartz. Markdown converte seu texto em XHTML válido.^[[2](https://pt.wikipedia.org/wiki/Markdown)]^
+A linha do tempo de modificações em Markdown é a seguinte:
+```{r}
+dados_md_m <- dados_md %>%
+  select(-c(file_extension, fds, dia_da_semana)) %>%
+  remove_rownames %>% 
+  column_to_rownames(var="data") %>%
+  as.xts()
+
+highchart(type = "stock") %>% 
+  hc_title(text = "Timeline da Atividade de Markdown") %>%
+  hc_add_series(dados_md_m)
+```
+
 
 ## Perguntas
 ### 1 - Para cada uma delas, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
@@ -161,4 +190,5 @@ data.frame(sd.diff.ci) %>%
   geom_errorbar(width = .2) + 
   geom_hline(yintercept = 0, colour = "darkblue")
 ```
-Usamos o desvio padrão para comparar a variação das duas linguagens, e temos com 95% de confiança que a diferença do desvio padrão de cada linguagem está entre `r sd.diff.ci`. Como esse intervalo inclui o zero não é possível determinar com segurança que linguagem varia mais no fim de semana.
+Usamos o desvio padrão para comparar a variação das duas linguagens, e temos com 95% de confiança que a diferença do desvio padrão de cada linguagem está entre `r sd.diff.ci`. Esse intervalo está bastante longe do zero, logo podemos afirmar com o grau de confiança já citado que nos finais de semana há mais variação entre os desenvolveres em JavaScript do que para os que desenvolvem em Markdown.
+
