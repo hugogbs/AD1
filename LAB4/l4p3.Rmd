@@ -121,8 +121,13 @@ highchart(type = "stock") %>%
 
 
 # Perguntas
-
+As diferenças nas duas perguntas são não pareadas.
 ## Existe diferença significativa na mediana da popularidade de quaisquer 2 linguagens entre o período de férias e os meses de trabalho do ano?
+## Existe diferença na produtividade entre o primeiro e o segundo semestre do ano?
+```{r}
+
+```
+
 
 ## Existe diferença na produtividade dos programadores nos dias próximos ao fim de semana (segunda e sexta) e os do meio da semana (terça, quarta e quinta)?
 
@@ -160,6 +165,34 @@ data.frame(mSS.CI) %>%
   ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
   geom_errorbar(width = .2) + 
   geom_hline(yintercept = 0, colour = "darkblue")
+
+
+library(boot)
+
+fun.boot <- function(x, i) {
+    median(x[i])
+}
+
+res.boot <- boot(data = (dados %>% 
+                   filter(is_segsex))$users, 
+                 statistic = fun.boot, 
+                 R = 5000)
+plot(res.boot)
+
+boot.ci(boot.out = res.boot, conf = 0.95, type = "bca")
+
+
+fun.boot <- function(x, i) {
+    median(x[i])
+}
+
+res.boot <- boot(data = (dados %>% 
+                   filter(!is_segsex))$users, 
+                 statistic = fun.boot, 
+                 R = 5000)
+plot(res.boot)
+
+boot.ci(boot.out = res.boot, conf = 0.95, type = "bca")
 
 ```
 
