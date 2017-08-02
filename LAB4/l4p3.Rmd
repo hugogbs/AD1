@@ -27,7 +27,8 @@ dados <- dados %>%
   mutate(data = as.Date(strptime(data, "%Y-%m-%d"))) %>%
   mutate(fds = is.weekend(data)) %>%
   mutate(dia_da_semana = weekdays(data)) %>%
-  mutate(mes = month_(data))
+  mutate(mes = month(data)) %>%
+  mutate(is_segsex = dia_da_semana %in% c("segunda", "sexta"))
 ```
 
 ```{r}
@@ -51,15 +52,13 @@ monthplot(dados_)
 dados.group <- dados %>%
   filter(substr(data, 0,  4) == "2016") %>%
   group_by(mes = substr(data, 6,  7), dia = substr(data, 9,  10)) %>%
-  summarize(usuarios = sum(users))
-
-
+  summarize(usuarios = sum(users)) %>%
   group_by(mes) %>%
   summarise(usuarios.median = median(usuarios))
 
 ggplot(data = dados.group, aes(x = mes, y = usuarios.median)) +
   geom_line() +
-  geom_point() +
+  geom_point()
 
 dados.group2 <- dados %>%
   filter(substr(data, 0,  4) == "2017") %>%
@@ -91,11 +90,9 @@ data.frame(dados_diff.ci) %>%
   geom_errorbar(width = .2) + 
   geom_hline(yintercept = 0, colour = "darkblue")
 ```
-## Existe diferença significativa na mediana da popularidade de quaisquer 2 linguagens entre o período de férias e os meses de trabalho do ano?
+
 ```{r}
 
-dados_mensais <- dados %>%
-  mon
 median.md <- bootstrap2(dados_md$users,
                         treatment = dados_md$fds,
                         median,
@@ -110,9 +107,6 @@ data.frame(median.md.diff) %>%
 ```
 
 
-
-## Existe diferença significativa na popularidade de linguagens que dão suporte a apenas um paradigma e as que suportam mais de um?
-
 ```{r}
 dados_m <- dados %>%
   select(-c(file_extension, dia_da_semana)) %>%
@@ -126,5 +120,47 @@ highchart(type = "stock") %>%
 ```
 
 
+# Perguntas
+
+## Existe diferença significativa na mediana da popularidade de quaisquer 2 linguagens entre o período de férias e os meses de trabalho do ano?
+
 ## Existe diferença na produtividade dos programadores nos dias próximos ao fim de semana (segunda e sexta) e os do meio da semana (terça, quarta e quinta)?
+
+```{r}
+dados.ss = bootstrap(dados %>%
+                filter(is_segsex), median(users))
+
+ss.CI = CI.bca(dados.ss, probs = c(.025, .975))
+ss.CI
+
+dados.Nss = bootstrap(dados %>%
+                filter(!is_segsex), median(users))
+
+Nss.CI = CI.bca(dados.Nss, probs = c(.025, .975))
+Nss.CI
+
+df <- data.frame(rbind(ss.CI,
+                       Nss.CI))
+
+df$medida = row.names(df)
+
+df %>% 
+  ggplot(aes(x = medida, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2)
+
+
+
+mSS <- bootstrap2(dados$users,
+                  treatment = dados$is_segsex,
+                  median,
+                  R = 10000)
+mSS.CI <- CI.percentile(mSS, probs = c(.025, .975))
+
+data.frame(mSS.CI) %>%
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkblue")
+
+```
+
 
