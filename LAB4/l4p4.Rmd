@@ -1,0 +1,99 @@
+---
+title: "Testes de hipótese x ICs"
+subtitle: "Problema 4 - Checkpoint 4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.align="center")
+
+library(tidyverse)
+library(resample)
+library(GGally)
+library(knitr)
+library(lubridate)
+library(chron)
+library(highcharter)
+library(xts)
+library(coin)
+
+theme_set(theme_bw())
+```
+
+
+```{r}
+dados <- read.csv("github-users-committing-filetypes.csv")
+```
+
+```{r}
+dados <- dados %>%
+  unite("data", the_year, the_month, month_day, sep = "-") %>%
+  mutate(data = as.Date(strptime(data, "%Y-%m-%d"))) %>%
+  mutate(dia_da_semana = weekdays(data)) %>%
+  mutate(mes = month(data)) %>%
+  mutate(fds = is.weekend(data)) %>%
+  mutate(is_segsex = dia_da_semana %in% c("segunda", "sexta"))
+```
+
+No checkpoint anterior umas das questões que respondemos foi: __Existe diferença na produtividade no primeiro e no segundo semestre de 2016?__ e lá concluímos, com 95% de significância estatística, que a produtividade é superior no primeiro período do ano.
+
+
+__Hipótese Nula (H0)__: Não existe diferença significativa de produtividade entre os semestres.
+__Hipótese Alternativa (H1)__: Há diferença significativa de produtividade entre os semestres.
+```{r}
+dados.semestre <- dados %>%
+  filter(substr(data, 0,  4) == "2016") %>%
+  mutate(Sem1 = mes <= 6) %>%
+  select(users, mes, Sem1, data)
+
+b_sem1 <- bootstrap(dados.semestre %>%
+                filter(Sem1), median(users))
+
+sem1.CI <- CI.percentile(b_sem1, probs = c(.025, .975))
+
+
+b_sem2 <- bootstrap(dados.semestre %>%
+                filter(!Sem1), median(users))
+
+sem2.CI <- CI.percentile(b_sem2, probs = c(.025, .975))
+
+
+df.sem <- data.frame(rbind(sem1.CI,
+                       sem2.CI))
+
+df.sem$Semestre = row.names(df.sem)
+
+df.sem %>% 
+  ggplot(aes(x = Semestre, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2, color = "#000066")
+
+```
+
+```{r}
+b_diff <- bootstrap2(data = (dados.semestre %>%
+                               filter(Sem1))$users,
+                     data2 = (dados.semestre %>%
+                               filter(!Sem1))$users,
+                     median)
+
+b_diff.ci <- CI.percentile(b_diff, probs = c(.025, .975))
+
+data.frame(b_diff.ci) %>% 
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2, color = "#000066") + 
+  geom_hline(yintercept = 0, colour = "darkblue")
+```
+
+
+
+
+```{r}
+perm <- permutationTest2(data = dados.semestre, statistic = median(users), treatment = Sem1) 
+
+permutationTest2(data = dados.semestre %>% filter(Sem1), 
+                 statistic = median(users), 
+                 data2 = dados.semestre %>% filter(!Sem1))
+
+hist(perm)
+```
+Uma associação que eu observei é muito improvável caso a hipótese nula seja verdadeira
