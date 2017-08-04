@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Problema 4 - Checkpoint 3"
 output: html_document
 ---
 
@@ -17,19 +17,30 @@ library(xts)
 
 theme_set(theme_bw())
 ```
+## Descrição dos dados
 
+Esse estudo tem como base uma _amostra_ dos dados da atividade global do [GitHub](https://github.com/). Os dados contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e em alguns meses de 2017.
 
 ```{r}
 dados <- read.csv("github-users-committing-filetypes.csv")
+```
 
+Para responder as questões desse estudo serão necessárias algumas transformações nos dados, de modo a obter a data completa e o dia da semana de cada observação.
+```{r}
 dados <- dados %>%
   unite("data", the_year, the_month, month_day, sep = "-") %>%
   mutate(data = as.Date(strptime(data, "%Y-%m-%d"))) %>%
-  mutate(fds = is.weekend(data)) %>%
   mutate(dia_da_semana = weekdays(data)) %>%
   mutate(mes = month(data)) %>%
+  mutate(fds = is.weekend(data)) %>%
   mutate(is_segsex = dia_da_semana %in% c("segunda", "sexta"))
 ```
+
+
+## Visão Geral
+As questões desta análise são todas de cunho temporal, assim sendo, a visualização abaixo pode lhe ajudar a entender o comportamento da amostra com a qual estamos lidando.
+
+É possível observar vários períodos de tempo diferentes neste gráfico, divirta-se!
 
 ```{r}
 dados_ <- dados %>%
@@ -44,105 +55,196 @@ highchart(type = "stock") %>%
   hc_title(text = "Timeline da Atividade Geral do Github") %>%
   hc_add_series(dados_)
 
-monthplot(dados_)
 ```
 
+Agora que já compreendemos o comportamento temporal da amostra que temos as questões a seguir se dedicação à utilização de manipulações estatísticas sobre esta amostra para obtermos concluções acerca da população que são os usuários do GitHub.
+
+## Existe diferença na produtividade no primeiro e no segundo semestre de 2016?
 
 ```{r}
-dados.group <- dados %>%
+dados.semestre <- dados %>%
   filter(substr(data, 0,  4) == "2016") %>%
+  mutate(Sem1 = mes <= 6) %>%
+  select(users, mes, Sem1, data)
+
+dados.semestre.group <- dados.semestre %>%
   group_by(mes = substr(data, 6,  7), dia = substr(data, 9,  10)) %>%
-  summarize(usuarios = sum(users)) %>%
-  group_by(mes) %>%
-  summarise(usuarios.median = median(usuarios))
-
-ggplot(data = dados.group, aes(x = mes, y = usuarios.median)) +
-  geom_line() +
-  geom_point()
-
-dados.group2 <- dados %>%
-  filter(substr(data, 0,  4) == "2017") %>%
-  group_by(mes) %>%
-  summarize(mediana = median(users),
-            media = mean(users))
-
-ggplot(data = dados.group2, aes(x = mes, y = mediana)) +
-  geom_line() +
-  geom_point() +
-  scale_x_discrete()
-
-dados.meses <- dados %>%
-  filter(mes %in% c(1, 12))
-dados.ferias <- dados %>%
-  filter(!(mes %in% c(1, 12)))
+  summarize(usuarios = sum(users))
 
 
+ggplot(data = dados.semestre.group, aes(x = mes, y = usuarios)) +
+  geom_violin(color = "#000033") +
+  geom_point(color = "#003366")
+```
+A visualização a acima nos dá a ideia de que a atividade é superior no primeiro semestre, mas será que podemos generalizar essa conclução para a amostra?
 
-dados_diff <- bootstrap2(data = dados.meses$users,
-                      data2 = dados.ferias$users,
-                      median,
-                      R = 10000)
-dados_diff.ci <- CI.percentile(dados_diff, probs = c(.025, .975))
-dados_diff.ci
+Aqui determinaremos o intevalo de confiança para a atividade dos programadores para os semestres do ano de 2016.
 
-data.frame(dados_diff.ci) %>% 
+Usaremos como medida a mediana, por ser uma métrica mais robusta.
+
+```{r}
+
+b_sem1 <- bootstrap(dados.semestre %>%
+                filter(Sem1), median(users))
+
+sem1.CI <- CI.percentile(b_sem1, probs = c(.025, .975))
+
+
+b_sem2 <- bootstrap(dados.semestre %>%
+                filter(!Sem1), median(users))
+
+sem2.CI <- CI.percentile(b_sem2, probs = c(.025, .975))
+
+
+df.sem <- data.frame(rbind(sem1.CI,
+                       sem2.CI))
+
+df.sem$Semestre = row.names(df.sem)
+
+df.sem %>% 
+  ggplot(aes(x = Semestre, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2, color = "#000066")
+
+```
+É perceptível que existe maior produtividade no primeiro semestre do ano.
+
+Podemos ainda observar o intervalo de confiança da diferença da produtividade no primeiro e no segundo semestre.
+
+```{r}
+b_diff <- bootstrap2(data = (dados.semestre %>%
+                               filter(Sem1))$users,
+                     data2 = (dados.semestre %>%
+                               filter(!Sem1))$users,
+                     median)
+
+b_diff.ci <- CI.percentile(b_diff, probs = c(.025, .975))
+
+data.frame(b_diff.ci) %>% 
   ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
-  geom_errorbar(width = .2) + 
+  geom_errorbar(width = .2, color = "#000066") + 
   geom_hline(yintercept = 0, colour = "darkblue")
 ```
 
+Enfim, podemos afirmar com 95% de confiança que a atividade dos programadores no GitHub é superior no primeiro semestre. O intervalo de confiança da diferença é `r b_diff.ci`.
+
+## Sabendo que em geral a produtividade é maior no primeiro semestre, em que trimestre desse período a produtividade é maior?
+
+Já que sabemos que no primeiro semestre a produtividade é maior, mas será que ao observarmos os trimestres teremos diferença significativa também?
+
+```{r}
+dados.tri <- dados.semestre %>%
+  filter(Sem1) %>%
+  mutate(Sem1 = NULL) %>%
+  mutate(trim1 = as.numeric(mes) <= 3)
+
+
+b_trim1 <- bootstrap(dados.tri %>%
+                filter(trim1), median(users))
+
+trim1.CI <- CI.percentile(b_trim1, probs = c(.025, .975))
+
+
+b_trim2 <- bootstrap(dados.tri %>%
+                filter(!trim1), median(users))
+
+trim2.CI <- CI.percentile(b_trim2, probs = c(.025, .975))
+
+
+df.trim <- data.frame(rbind(trim1.CI,
+                       trim2.CI))
+
+df.trim$Trimestre = row.names(df.trim)
+
+df.trim %>% 
+  ggplot(aes(x = Trimestre, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2)
+```
+Neste caso temos bastante interseção entre os intervalos, então precisaremos observar a diferença entre os intervalos, para sabermos se podemos obter conclusões significativas sobre a população.
+
 ```{r}
 
-median.md <- bootstrap2(dados_md$users,
-                        treatment = dados_md$fds,
-                        median,
-                        R = 10000)
+b_diff <- bootstrap2(data = (dados.tri %>%
+                               filter(trim1))$users,
+                     data2 = (dados.tri %>%
+                               filter(!trim1))$users,
+                     statistic = median,
+                     R = 1000)
 
-median.md.diff <- CI.percentile(median.md, probs = c(.025, .975))
+b_diff.ci <- CI.percentile(b_diff, probs = c(.025, .975))
 
-data.frame(median.md.diff) %>% 
+data.frame(b_diff.ci) %>% 
   ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
   geom_errorbar(width = .2) + 
   geom_hline(yintercept = 0, colour = "darkblue")
-```
-
-
-```{r}
-dados_m <- dados %>%
-  select(-c(file_extension, dia_da_semana)) %>%
-  remove_rownames %>% 
-  column_to_rownames(var="data") %>%
-  as.xts()
-
-highchart(type = "stock") %>% 
-  hc_title(text = "Timeline da Atividade de JavaScript") %>%
-  hc_add_series(dados_m)
-```
-
-
-# Perguntas
-As diferenças nas duas perguntas são não pareadas.
-## Existe diferença significativa na mediana da popularidade de quaisquer 2 linguagens entre o período de férias e os meses de trabalho do ano?
-## Existe diferença na produtividade entre o primeiro e o segundo semestre do ano?
-```{r}
 
 ```
 
+Observa-se que mesmo com o intervalo bem próximo ao zero, no entanto o zero não está contido nele, logo, podemos afirmar com 95% de confiança que a produtividade dos usuários do GitHub no primeiro trimestre é superior à do segundo trimestre do ano. O intervalo de confiança é `r b_diff.ci`.
 
-## Existe diferença na produtividade dos programadores nos dias próximos ao fim de semana (segunda e sexta) e os do meio da semana (terça, quarta e quinta)?
+
+## Existe diferença no número de usuários nos dias próximos ao fim de semana (segunda e sexta) e os do meio da semana (terça, quarta e quinta)?
+Será que o fim de semana afeta a produtividade dos usuários do GitHub durante a semana?
+Usaremos como métrica a mediana novamente.
 
 ```{r}
 dados.ss = bootstrap(dados %>%
                 filter(is_segsex), median(users))
 
-ss.CI = CI.bca(dados.ss, probs = c(.025, .975))
-ss.CI
+ss.CI = CI.percentile(dados.ss, probs = c(.025, .975))
+
 
 dados.Nss = bootstrap(dados %>%
                 filter(!is_segsex), median(users))
 
-Nss.CI = CI.bca(dados.Nss, probs = c(.025, .975))
-Nss.CI
+Nss.CI = CI.percentile(dados.Nss, probs = c(.025, .975))
+
+
+df <- data.frame(rbind(ss.CI,
+                       Nss.CI))
+
+df$medida = row.names(df)
+
+df %>% 
+  ggplot(aes(x = medida, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2)
+```
+
+Temos bastante interseção entre os intervalos, então precisaremos observar a diferença para termos certeza sobre as conclusão que iremos obter.
+
+```{r}
+mSS <- bootstrap2(data = (dados %>% filter(is_segsex))$users,
+                  data2 = (dados %>% filter(!is_segsex))$users,
+                  median,
+                  R = 10000)
+
+mSS.CI <- CI.percentile(mSS, probs = c(.025, .975))
+
+data.frame(mSS.CI) %>%
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkblue")
+
+```
+Como o intervalo da diferença (`r mSS.CI`) inclui o zero não podemos obter conclusões significativas para essa questão. 
+
+## Existe uma diferença significativa na sua variação do número de usuários do GitHub  entre os dias próximos ao fim de semana (segunda e sexta) e os do meio da semana (terça, quarta e quinta)?
+
+Já que não obtemos conclusões significativas sobre a popularidade, será que podemos obter resultados relevantes a cerca da variância?
+
+Usaremos como medida o desvio padrão.
+```{r}
+
+dados.ss = bootstrap(dados %>%
+                filter(is_segsex), sd(users))
+
+ss.CI = CI.percentile(dados.ss, probs = c(.025, .975))
+
+
+dados.Nss = bootstrap(dados %>%
+                filter(!is_segsex), sd(users))
+
+Nss.CI = CI.percentile(dados.Nss, probs = c(.025, .975))
+
 
 df <- data.frame(rbind(ss.CI,
                        Nss.CI))
@@ -153,47 +255,20 @@ df %>%
   ggplot(aes(x = medida, ymin = X2.5., ymax = X97.5.)) + 
   geom_errorbar(width = .2)
 
+```
+Observando a diferença:
+```{r}
 
-
-mSS <- bootstrap2(dados$users,
-                  treatment = dados$is_segsex,
-                  median,
+mSS <- bootstrap2(data = (dados %>% filter(is_segsex))$users,
+                  data2 = (dados %>% filter(!is_segsex))$users,
+                  sd,
                   R = 10000)
+
 mSS.CI <- CI.percentile(mSS, probs = c(.025, .975))
 
 data.frame(mSS.CI) %>%
   ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
   geom_errorbar(width = .2) + 
   geom_hline(yintercept = 0, colour = "darkblue")
-
-
-library(boot)
-
-fun.boot <- function(x, i) {
-    median(x[i])
-}
-
-res.boot <- boot(data = (dados %>% 
-                   filter(is_segsex))$users, 
-                 statistic = fun.boot, 
-                 R = 5000)
-plot(res.boot)
-
-boot.ci(boot.out = res.boot, conf = 0.95, type = "bca")
-
-
-fun.boot <- function(x, i) {
-    median(x[i])
-}
-
-res.boot <- boot(data = (dados %>% 
-                   filter(!is_segsex))$users, 
-                 statistic = fun.boot, 
-                 R = 5000)
-plot(res.boot)
-
-boot.ci(boot.out = res.boot, conf = 0.95, type = "bca")
-
 ```
-
-
+Observando os resultados é possível afirmar com 95% de confiança que há maior variação no número de usuários na segunda e na sexta que nos demais dias da semana útil. O itervalo de confiança é `r mSS.CI`.
