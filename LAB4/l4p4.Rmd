@@ -21,6 +21,11 @@ theme_set(theme_bw())
 ```
 
 
+## Descrição dos dados
+
+Esse estudo tem como base uma _amostra_ dos dados da atividade global do [GitHub](https://github.com/). Os dados contém a contagem de quantas pessoas editaram arquivos com cada extensão de arquivo em cada dia de 2016 e em alguns meses de 2017.
+
+Para responder as questões desse estudo serão necessárias algumas transformações nos dados, de modo a obter a data completa e o dia da semana de cada observação.
 ```{r}
 dados <- read.csv("github-users-committing-filetypes.csv")
 ```
@@ -29,17 +34,37 @@ dados <- read.csv("github-users-committing-filetypes.csv")
 dados <- dados %>%
   unite("data", the_year, the_month, month_day, sep = "-") %>%
   mutate(data = as.Date(strptime(data, "%Y-%m-%d"))) %>%
-  mutate(dia_da_semana = weekdays(data)) %>%
-  mutate(mes = month(data)) %>%
-  mutate(fds = is.weekend(data)) %>%
-  mutate(is_segsex = dia_da_semana %in% c("segunda", "sexta"))
+  mutate(mes = month(data))
 ```
 
-No checkpoint anterior umas das questões que respondemos foi: __Existe diferença na produtividade no primeiro e no segundo semestre de 2016?__ e lá concluímos, com 95% de significância estatística, que a produtividade é superior no primeiro período do ano.
+As questões desta análise são de cunho temporal, assim sendo, a visualização abaixo pode lhe ajudar a entender o comportamento da amostra com a qual estamos lidando.
 
+É possível observar vários períodos de tempo diferentes neste gráfico, divirta-se!
 
-__Hipótese Nula (H0)__: Não existe diferença significativa de produtividade entre os semestres.
-__Hipótese Alternativa (H1)__: Há diferença significativa de produtividade entre os semestres.
+```{r}
+dados_ <- dados %>%
+  select(-c(file_extension, mes)) %>%
+  group_by(data) %>%
+  summarise(users_tot = sum(users)) %>%
+  remove_rownames %>% 
+  column_to_rownames(var="data") %>%
+  as.xts()
+
+highchart(type = "stock") %>% 
+  hc_title(text = "Timeline da Atividade Geral do Github") %>%
+  hc_add_series(dados_)
+```
+
+## Testes de hipótese vs. Intervalos de confiança
+
+A análise anterior o que fizemos foi determinar __intervalos de confiança__ para fazermos afirmações sobre a população que estavamos estudando com um certo nível de confiança (em geral 95%).
+
+Aqui, buscamos responder duas perguntas acerca da atividade global do Github usando __testes de hipótese__.
+
+No nosso estudo anterior respondemos à questão: __Existe diferença na produtividade no primeiro e no segundo semestre de 2016?__, tentaremos responder essa mesma pergunta usando testes de hipótese.
+
+Com intevalos de confiança usamos a mediana como estatística para respondar à pergunta e obtivemos:
+
 ```{r}
 dados.semestre <- dados %>%
   filter(substr(data, 0,  4) == "2016") %>%
@@ -69,6 +94,8 @@ df.sem %>%
 
 ```
 
+Percebemos que há uma grande difença entre o primeiro e o segundo semestre, mas, a intersecção entre os gráficos nos faz não ter certeza se a produtividade é realmente maior nos primeiros seis meses do ano, assim, faremos uso da difença para determinarmos o intervalo de confiança e o quanto ele pode ser útil enquanto aquisição de informação sobra a população. 
+
 ```{r}
 b_diff <- bootstrap2(data = (dados.semestre %>%
                                filter(Sem1))$users,
@@ -83,17 +110,35 @@ data.frame(b_diff.ci) %>%
   geom_errorbar(width = .2, color = "#000066") + 
   geom_hline(yintercept = 0, colour = "darkblue")
 ```
+A diferença nos faz confirmar nossas suspeitas facilmente, uma vez que o intervalo encontrado não inclui o zero, logo, podemos afirmar com 95% de confiança que a atividade no Github é maior no primeiro semestre do ano. O intervalo encontrado é de `r b_diff.ci`. Em outras palavras, a diferença de produtividade entre os semestres é relevante e maior atividade está no primeiro semestre.
 
+O estudo usando intervalos de confiança, que acabamos de fazer, nos permite não somente verificar a existência de difernça entre as medianas dos dados mas também mensurar que intervalo é este.
 
+A seguir responderemos a mesma pergunta mas usando Testes de hipótese, para isso, é fundamental introduzir alguns conceitos importantes:
 
+__Hipótese Nula (H0)__: É uma hipótese que quando realizamos um teste de hipóteses tentamos provar que é falsa, pois geralmente afirma que não há relação entre os fenômenos em estudo.^[1](https://pt.wikipedia.org/wiki/Hip%C3%B3tese_nula)^
+No nosso caso a hipótese nula será _Não há diferença de produtividade entre os semestres do ano._
+
+__Hipótese Alternativa__: É a hipotese _rival_ de H0, que busca provar o contrário do que foi eunciado por ela.^[2](https://pt.wikipedia.org/wiki/Hip%C3%B3tese_nula)^
+A nossa hipótese alternativa é que _Há diferença significativa na produtividade entre os semestres_. 
+
+__P-valor__: Também denominado nível descritivo do teste, é a probabilidade de que a estatística do teste (como variável aleatória) tenha valor extremo em relação ao valor observado (estatística) quando a hipótese H0 é verdadeira. Em outras palavras é a chance de obter uma associação como a que foi observada caso a hipótese nula seja verdadeira.
+
+Agora que já conhecemos os termos mais comuns ligados ao teste de hipótese podemos realizá-lo e analizá-lo com mais propriedade.
 
 ```{r}
+options("scipen"=999)
+set.seed(123)
 perm <- permutationTest2(data = dados.semestre, statistic = median(users), treatment = Sem1) 
-
-permutationTest2(data = dados.semestre %>% filter(Sem1), 
-                 statistic = median(users), 
-                 data2 = dados.semestre %>% filter(!Sem1))
-
 hist(perm)
 ```
-Uma associação que eu observei é muito improvável caso a hipótese nula seja verdadeira
+
+Em geral, o nível de significância ($\alpha$) usado no teste de hipóteses é de 5%, deste modo, de o P-valor for menor que $\alpha$ rejeitamos H0, mas se este for maior não rejeitamos a hipótese nula.
+
+Em nosso caso o valor obtido para P-valor é de `r perm$stats$PValue`, que é bastante abaixo do nível de significância estabelecido (0.05). Logo, podemos interpretar esse valor da seguinte forma:
+
+Em uma realidade em que não existe diferença significativa na produtividade entre os semestres do ano (H0 é verdadeira) `r perm$stats$PValue` é a chance de obtermos uma associação como a que obtivemos.
+
+Como P-valor está bastante _distante_ de $\alpha$ estamos também distantes de H0 e com isso, temos bastante confiança para rejeitá-la e afirmar que existe sim, diferença significativa na produtividade entre os períodos. 
+
+Vale ressaltar que P-valor não nos dá informações acerca do intervalo de confiança no qual está contido a estatística que calculamos ou mesmo o nível de confiança que poderíamos ter, informações como estas são obtidas através de intervalos de confiança.
