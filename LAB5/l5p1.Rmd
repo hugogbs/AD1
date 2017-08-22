@@ -1,0 +1,53 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+theme_set(theme_bw())
+
+library(tidyverse)
+library(broom)
+library(modelr) # devtools::install_github("hadley/modelr")
+```
+
+```{r}
+dating <- read_csv("speed-dating.csv")
+
+```
+
+# O quanto considerar uma pessoa atraente, divertida, ambiciosa e ter ter interesses em comum com ela influencia o quanto você gosta de dela?
+```{r}
+model <-   lm(like ~ attr + fun + amb + int_corr, data = dating)
+
+date_augmented = dating %>% 
+  add_predictions(model) %>% 
+  add_residuals(model)
+
+adv_augmented %>% 
+  ggplot(aes(x = attr)) + 
+  geom_point(aes(y = resid))
+
+adv_augmented %>% 
+  ggplot(aes(x = fun)) + 
+  geom_point(aes(y = resid))
+
+adv_augmented %>% 
+  ggplot(aes(x = amb)) + 
+  geom_point(aes(y = resid))
+
+adv_augmented %>% 
+  ggplot(aes(x = int_corr)) + 
+  geom_point(aes(y = resid))
+
+tidy(model, conf.int = TRUE) %>% 
+  select(-std.error, -p.value)
+glance(model)
+```
+
+
+# As pessoas estão dispostas a formar casais diversos?
+
+Considerar Raça, (diferença de) idade , genero, campo de estudo, carreira
