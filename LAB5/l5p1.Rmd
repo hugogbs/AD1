@@ -1,5 +1,5 @@
 ---
-title: "Untitled"
+title: "Romance Relâmpago"
 output: html_document
 ---
 
@@ -15,10 +15,23 @@ library(modelr) # devtools::install_github("hadley/modelr")
 
 ```{r}
 dating <- read_csv("speed-dating.csv")
-
 ```
+# Introdução
+![](vamo.jpg)
+
+O trabalho agora é estudar dados referentes a aproximadamente 5000 encontros rápidos ([speed dating](https://en.wikipedia.org/wiki/Speed_dating)) de 4 minutos envolvendo 310 jovens americanos. Após cada encontro, os participantes respondiam a um formulário avaliando aquelas com quem eles com quem se encontraram e cada linha dos dados representa um desses encontros.
+
+Os dados contam com 43 variáveis mas aqui lidaremos com um subconjuntos destas, os dados originais estão [aqui](https://raw.githubusercontent.com/nazareno/ciencia-de-dados-1/master/5-regressao/speed-dating/speed-dating.csv).
+
+A variáveis que usaremos são:
+
+======================== DESCREVER AS VARIÁVEIS ===================================
+
+Agora que conhecemos melhor as variáveis que usaremos aqui é hora de respondermos às nossas perguntas.
+
 
 # O quanto considerar uma pessoa atraente, divertida, ambiciosa e ter ter interesses em comum com ela influencia o quanto você gosta de dela?
+
 ```{r}
 model <-   lm(like ~ attr + fun + amb + int_corr, data = dating)
 
