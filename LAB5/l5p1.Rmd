@@ -6,61 +6,158 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-theme_set(theme_bw())
-
 library(tidyverse)
 library(broom)
 library(modelr) # devtools::install_github("hadley/modelr")
+library(DT)
+
+theme_set(theme_bw())
 ```
 
-```{r}
-dating <- read_csv("speed-dating.csv")
+```{r results='hide', warning=FALSE}
+speed_dating <- read_csv("speed-dating.csv")
 ```
 # Introdução
-![](vamo.jpg)
 
 O trabalho agora é estudar dados referentes a aproximadamente 5000 encontros rápidos ([speed dating](https://en.wikipedia.org/wiki/Speed_dating)) de 4 minutos envolvendo 310 jovens americanos. Após cada encontro, os participantes respondiam a um formulário avaliando aquelas com quem eles com quem se encontraram e cada linha dos dados representa um desses encontros.
 
+
+![](vamo.jpg)
+
+
 Os dados contam com 43 variáveis mas aqui lidaremos com um subconjuntos destas, os dados originais estão [aqui](https://raw.githubusercontent.com/nazareno/ciencia-de-dados-1/master/5-regressao/speed-dating/speed-dating.csv).
 
-A variáveis que usaremos são:
-
-======================== DESCREVER AS VARIÁVEIS ===================================
-
-Agora que conhecemos melhor as variáveis que usaremos aqui é hora de respondermos às nossas perguntas.
+Foram removidas as observações em que não havia valor para qualquer uma das variáveis escolhidas.
 
 
-# O quanto considerar uma pessoa atraente, divertida, ambiciosa e ter ter interesses em comum com ela influencia o quanto você gosta de dela?
+# O quanto considerar uma pessoa atraente, divertida e ter ter interesses em comum com ela influencia o quanto você gosta de dela?
 
 ```{r}
-model <-   lm(like ~ attr + fun + amb + int_corr, data = dating)
+dating <- speed_dating %>%
+  select(like, attr, fun, int_corr) %>%
+  na.omit()
+```
+
+
+Para responder à essa questão avaliaremos o efeito das variáveis attr, fun, amb e int_corr sobre a variável de resposta like, para isso empregaremos regressão linear.
+
+```{r}
+model <- lm(like ~ attr + fun + int_corr, data = dating)
 
 date_augmented = dating %>% 
   add_predictions(model) %>% 
   add_residuals(model)
-
-adv_augmented %>% 
-  ggplot(aes(x = attr)) + 
-  geom_point(aes(y = resid))
-
-adv_augmented %>% 
-  ggplot(aes(x = fun)) + 
-  geom_point(aes(y = resid))
-
-adv_augmented %>% 
-  ggplot(aes(x = amb)) + 
-  geom_point(aes(y = resid))
-
-adv_augmented %>% 
-  ggplot(aes(x = int_corr)) + 
-  geom_point(aes(y = resid))
-
-tidy(model, conf.int = TRUE) %>% 
-  select(-std.error, -p.value)
-glance(model)
 ```
 
+Podemos avaliar os resíduos do modelo obtido para cada uma das variáveis independentes (fatores) escolhidas:
 
-# As pessoas estão dispostas a formar casais diversos?
+```{r}
+date_augmented %>% 
+  ggplot(aes(x = attr)) + 
+  geom_jitter(aes(y = resid))
 
-Considerar Raça, (diferença de) idade , genero, campo de estudo, carreira
+date_augmented %>% 
+  ggplot(aes(x = fun)) + 
+  geom_jitter(aes(y = resid))
+
+date_augmented %>% 
+  ggplot(aes(x = int_corr)) + 
+  geom_jitter(aes(y = resid))
+```
+
+Com as visualizações percebemos que, para a maiora das observações, o modelo descreveu bem os dados, dado que grande parte dos pontos está entre -3 e 3, significando que grando parte dos erros está neste intervalo.
+
+Com isso, temos indícíos de que o nosso modelo está descrevendo bem os dados e sabendo disto podemos estudar os coeficientes e o modelo obtidos.
+
+```{r}
+tidy(model, conf.int = TRUE) %>% 
+  select(-std.error, -p.value) %>%
+  datatable()
+```
+
+Encontramos para as variáveis attr, fun e int_corr os coeficientes 0.39, 0.41 e 0.17 respectivamente, logo, quando o valor destas variáveis aumenta o valor da variável like também aumenta.
+
+Constatamos ainda que com 95% de confiança nenhum dos intervalos contém o zero, logo a nossa estimativa é significativa.
+
+É necessário compreender que basicamente o que o nosso modelo está nos dizendo é que se incrementar-mos em 1 a variável attr a variável like cresce em aproximadamente 0.38 (o mesmo ocorre se a variável for fun) e se somarmos 1 em int_corr, like é somado de 0.16.
+
+
+```{r}
+glance(model) %>%
+  datatable()
+```
+
+Nosso modelo é capaz de representar 58% da variação observada em like.
+
+A visualização abaixo nos ajuda a compreender como se dá essa relação.
+
+```{r}
+plot <- dating %>%
+  data_grid(attr = seq_range(attr, 10),
+            fun = seq_range(fun, 4),
+            int_corr = seq_range(int_corr, 3)) %>%
+  add_predictions(model)
+
+plot %>%
+  ggplot(aes(x = attr, y = pred)) + 
+  geom_line(aes(group = int_corr, colour = int_corr)) + 
+  facet_grid(. ~ fun)
+```
+
+A gráfico apresenta todas as variáveis do modelo, no eixo x temos attr, a variação de cor representa a int_corr, e as facetas representam a variável fun.
+
+# O quanto compartilhar interesses com uma pessoa e gostar dela influencia no desejo em encontra-la novamente?
+```{r}
+dating2 <- speed_dating %>%
+  select(prob, like, shar) %>%
+  na.omit()
+
+model2 <- lm(prob ~ like + shar, data = dating2) %>%
+  na.omit()
+
+model2.agument <- dating2 %>%
+  add_predictions(model2) %>%
+  add_residuals(model2)
+
+model2.agument %>% 
+  ggplot(aes(x = like)) + 
+  geom_jitter(aes(y = resid))
+
+model2.agument %>% 
+  ggplot(aes(x = shar)) + 
+  geom_jitter(aes(y = resid))
+```
+
+Observa-se que para todas as variáveis os resíduos, na maiora dos casos, não ultrapassam 4.
+
+
+```{r}
+tidy(model2, conf.int = TRUE) %>% 
+  select(-std.error, -p.value) %>%
+  datatable()
+```
+
+Vemos que as variáveis like e shar possuem os coeficientes 0.34 e 0.27 respectivamente ou seja, quando o valor de uma delas aumenta de 1 prob aumenta do coeficiente correspondente.
+
+Podemos afirmar ainda, 95% de confiança que os intervalos de confiança não contêm o zero, logo nossa estatística é significativa.
+
+```{r}
+glance(model2) %>%
+  datatable
+```
+
+No entanto ao analizar o R quadrado vemos que o modelo escolhido não é representativo, já que ele é capaz de explicar apenas 26% da variação sobre a variável prob.
+
+Mesmo assim, veremos como se dá essa influência:
+
+```{r}
+plot <- dating2 %>%
+  data_grid(like = seq_range(like, 10),
+            shar = seq_range(shar, 5)) %>%
+  add_predictions(model2)
+
+plot %>%
+  ggplot(aes(x = like, y = pred)) + 
+  geom_line(aes(group = shar, colour = shar))
+```
+
