@@ -1,0 +1,115 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(GGally)
+library(pscl)
+library(broom)
+library(tidyverse)
+library(modelr) # devtools::install_github("hadley/modelr")
+library(stargazer)
+library(vcd)
+
+theme_set(theme_bw())
+
+```
+Agora vamos continuar usando dados de encotros relâmpago que tínhamos no checkpoint anterior e estaremos ainda fazendo análise de regressão.
+
+A diferença agora é que queremos explicar uma nova variável categórica atrávés de fatores que acreditamos que possam ter influência sobre ela.
+
+A variável que queros explicar é __dec__ que diz se p1 gostaria de se encontrar novamente com p2 dado como foi o encontro relâmpago. Podemos entender essa variável como __o match do passado__.
+
+O modelo será gerado utilizando algumas variáveis que acreditamos que tem mais influência sobre a variável resposta e que definem a opinião de um participante sobre o outro. Segundo a perspectiva da pessoa que respondeu o questionário sobre a pessoa com a qual ela acabou de se encontrar são elas:
+
+* __attr__: o quão atraente é a pessoa;
+* __sinc__: o quão sincera é a pessoa;
+* __intel__: o quão inteligente é a pessoa;
+* __fun__: o quão divertida é a pessoa;
+* __amb__: o quão ambiciosa é a pessoa;
+* __like__: o quanto você gostou da pessoa;
+* __prob__: a probabilidade de você querer se encontrar novamente com a pessa.
+
+A seguir, temos uma breve visualização da relação entre cada um dos fatores escolhidos e a variável resposta. Faixas mais escuras indicam maior ocorrência.
+```{r}
+speed_dating <- read_csv("speed-dating2.csv")
+dados <- speed_dating %>%
+  select(dec, attr, sinc, intel, fun, amb, like, prob) %>%
+  mutate(dec = as.factor(dec)) %>%
+  na.omit()
+
+ggplot(dados, aes(x = dec, y = attr)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.1, color="#9400D3") +
+  labs(title="Avaliação em atração X Match", x= "Match", y="Nota em atração")
+
+ggplot(dados, aes(x = dec, y = sinc)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.1, color="#4B0082") +
+  labs(title="Avaliação em sinceridade X Match", x= "Match", y="Nota em sinceridade")
+
+ggplot(dados, aes(x = dec, y = intel)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.1, color="#0000FF") +
+  labs(title="Avaliação em inteligência X Match", x= "Match", y="Nota em inteligência")
+
+ggplot(dados, aes(x = dec, y = fun)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.1, color="#00FF00") +
+  labs(title="Avaliação em divertido(a) X Match", x= "Match", y="Nota em divertido(a)")
+
+ggplot(dados, aes(x = dec, y = amb)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.1, color="#FFFF00") +
+  labs(title="Avaliação em ambicioso(a) X Match", x= "Match", y="Nota em ambicioso(a)")
+
+ggplot(dados, aes(x = dec, y = like)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.2, color="#FF7F00") +
+  labs(title="Avaliação em like X Match", x= "Match", y="Nota em like")
+
+ggplot(dados, aes(x = dec, y = prob)) +
+  geom_boxplot() +
+  geom_jitter(alpha = 0.2, color="#FF0000") +
+  labs(title="Avaliação em chance de reencontro X Match", x= "Match", y="Chance de reencontro")
+```
+
+Agora que visualizamos as variáveis isoladamente com a variável resposta, iremos gerar um modelo com estas variáveis independentes para observarmos se cada uma delas influencia significativamente a variável resposta e o quão "forte" é essa influência.
+
+Utilizaremos regressão logística para gerar o modelo
+```{r}
+modelo <- glm(dec ~ attr + sinc + intel + fun + amb + like + prob,
+              data = dados,
+              family = "binomial")
+
+tidy(modelo, conf.int = TRUE)
+tidy(modelo, conf.int = TRUE, exponentiate = TRUE)
+
+glance(modelo)
+pR2(modelo)
+
+stargazer(modelo, type="text")
+
+previsoes = modelo %>% 
+  augment(type.predict = "response") %>% 
+  mutate(segundo_modelo = .fitted > .5, 
+         segundo_dados = dec == "yes")
+
+table(previsoes$segundo_modelo, previsoes$segundo_dados)
+xtabs(~ segundo_modelo + segundo_dados, data = previsoes)
+mosaic(segundo_dados ~ segundo_modelo, data = previsoes, 
+       shade = T)
+```
+# 1. Quais fatores têm efeito significativo na chance de ocorrer match? E como é esse efeito (positivo/negativo)?
+
+# 2. Que fatores nos dados têm mais efeito na chance de ocorrer match?
+
+# Avaliação do modelo
+Só se precisar / der
+
+
+
+
