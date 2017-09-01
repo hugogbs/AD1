@@ -1,10 +1,16 @@
 ---
-title: "Untitled"
+title: "Laboratório 5 - Checkpoint 3"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  screenshot.force = FALSE,
+  fig.align = 'center',
+  fig.width = 4,
+  fig.height = 4)
 
 library(GGally)
 library(pscl)
@@ -13,6 +19,9 @@ library(tidyverse)
 library(modelr) # devtools::install_github("hadley/modelr")
 library(stargazer)
 library(vcd)
+library(gridExtra)
+library(DT)
+
 
 theme_set(theme_bw())
 
@@ -34,82 +43,103 @@ O modelo será gerado utilizando algumas variáveis que acreditamos que tem mais
 * __prob__: a probabilidade de você querer se encontrar novamente com a pessa.
 
 A seguir, temos uma breve visualização da relação entre cada um dos fatores escolhidos e a variável resposta. Faixas mais escuras indicam maior ocorrência.
-```{r}
+```{r results='hide', warning=FALSE}
 speed_dating <- read_csv("speed-dating2.csv")
 dados <- speed_dating %>%
   select(dec, attr, sinc, intel, fun, amb, like, prob) %>%
   mutate(dec = as.factor(dec)) %>%
   na.omit()
 
-ggplot(dados, aes(x = dec, y = attr)) +
+attr <- ggplot(dados, aes(x = dec, y = attr)) +
   geom_boxplot() +
   geom_jitter(alpha = 0.1, color="#9400D3") +
   labs(title="Avaliação em atração X Match", x= "Match", y="Nota em atração")
 
-ggplot(dados, aes(x = dec, y = sinc)) +
+sinc <- ggplot(dados, aes(x = dec, y = sinc)) +
   geom_boxplot() +
   geom_jitter(alpha = 0.1, color="#4B0082") +
   labs(title="Avaliação em sinceridade X Match", x= "Match", y="Nota em sinceridade")
 
-ggplot(dados, aes(x = dec, y = intel)) +
+intel <- ggplot(dados, aes(x = dec, y = intel)) +
   geom_boxplot() +
   geom_jitter(alpha = 0.1, color="#0000FF") +
   labs(title="Avaliação em inteligência X Match", x= "Match", y="Nota em inteligência")
 
-ggplot(dados, aes(x = dec, y = fun)) +
+fun <- ggplot(dados, aes(x = dec, y = fun)) +
   geom_boxplot() +
   geom_jitter(alpha = 0.1, color="#00FF00") +
   labs(title="Avaliação em divertido(a) X Match", x= "Match", y="Nota em divertido(a)")
 
-ggplot(dados, aes(x = dec, y = amb)) +
+amb <- ggplot(dados, aes(x = dec, y = amb)) +
   geom_boxplot() +
   geom_jitter(alpha = 0.1, color="#FFFF00") +
   labs(title="Avaliação em ambicioso(a) X Match", x= "Match", y="Nota em ambicioso(a)")
 
-ggplot(dados, aes(x = dec, y = like)) +
+like <- ggplot(dados, aes(x = dec, y = like)) +
   geom_boxplot() +
   geom_jitter(alpha = 0.2, color="#FF7F00") +
   labs(title="Avaliação em like X Match", x= "Match", y="Nota em like")
 
-ggplot(dados, aes(x = dec, y = prob)) +
+prob <-ggplot(dados, aes(x = dec, y = prob)) +
   geom_boxplot() +
   geom_jitter(alpha = 0.2, color="#FF0000") +
   labs(title="Avaliação em chance de reencontro X Match", x= "Match", y="Chance de reencontro")
+
+# grid.arrange(attr, sinc, intel, fun, amb, like, prob)
+
+attr
+sinc
+intel
+fun
+amb
+like
+prob
 ```
 
 Agora que visualizamos as variáveis isoladamente com a variável resposta, iremos gerar um modelo com estas variáveis independentes para observarmos se cada uma delas influencia significativamente a variável resposta e o quão "forte" é essa influência.
 
-Utilizaremos regressão logística para gerar o modelo
+Utilizaremos regressão logística para gerar o modelo.
+
 ```{r}
 modelo <- glm(dec ~ attr + sinc + intel + fun + amb + like + prob,
               data = dados,
               family = "binomial")
+```
 
-tidy(modelo, conf.int = TRUE)
-tidy(modelo, conf.int = TRUE, exponentiate = TRUE)
+# 1. Quais fatores têm efeito significativo na chance de ocorrer match? E como é esse efeito (positivo/negativo)?
 
-glance(modelo)
+```{r}
+tidy(modelo, conf.int = TRUE, exponentiate = TRUE) %>%
+  select(-std.error, -p.value) %>%
+  datatable()
+```
+
+Todas as variáveis possuem intervalo de confiança significativo exceto a inteligência, então, nada podemos afirmar sobre a influência desta variável na variavel resposta.
+
+Quanto as demais, de acordo com a tabela acima podemos perceber que sinceridade e ambição tem efeito negativo sobre a chance de match enquanto as demais variáveis tem efeito positivo sobre a chance de ocorrer um match.
+
+# 2. Que fatores nos dados têm mais efeito na chance de ocorrer match?
+
+Ainda segundo a tabela do tópico anterior podemos observar que as variáveis que mais influenciam o match são like, attr respectivamente, ao passo que fun e amb influenciam pouco. Sinc e prob tem influência moderada sobre o match.
+
+# Avaliação do modelo
+```{r}
 pR2(modelo)
-
-stargazer(modelo, type="text")
+```
+De acordo com a estimativa acima o nosso modelo representa 31% dos dados.
+```{r}
 
 previsoes = modelo %>% 
   augment(type.predict = "response") %>% 
   mutate(segundo_modelo = .fitted > .5, 
          segundo_dados = dec == "yes")
 
-table(previsoes$segundo_modelo, previsoes$segundo_dados)
 xtabs(~ segundo_modelo + segundo_dados, data = previsoes)
 mosaic(segundo_dados ~ segundo_modelo, data = previsoes, 
        shade = T)
+
 ```
-# 1. Quais fatores têm efeito significativo na chance de ocorrer match? E como é esse efeito (positivo/negativo)?
 
-# 2. Que fatores nos dados têm mais efeito na chance de ocorrer match?
-
-# Avaliação do modelo
-Só se precisar / der
-
-
+De acordo com a visualização nosso modelo acerta em 76% dos casos.
 
 
